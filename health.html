@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Health · The Twenty-Gen Legacy</title></head><body>
+<script>/* theme: auto (same as the device) → dark → light */(function(){var K="tg-theme",m=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)");function get(){try{return localStorage.getItem(K)||"auto";}catch(e){return "auto";}}function apply(){var p=get(),d=p==="dark"||(p==="auto"&&m&&m.matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");var b=document.getElementById("themeBtn");if(b){b.textContent=p==="auto"?"🌓":p==="dark"?"🌙":"☀️";b.title="Theme: "+(p==="auto"?"same as your device":p)+". Tap to change.";b.setAttribute("aria-label",b.title);}}window.tgTheme=function(){var p=get(),n=p==="auto"?"dark":p==="dark"?"light":"auto";try{localStorage.setItem(K,n);}catch(e){}apply();};if(m&&m.addEventListener)m.addEventListener("change",apply);apply();document.addEventListener("DOMContentLoaded",function(){var b=document.getElementById("themeBtn");if(b)b.addEventListener("click",window.tgTheme);apply();});})();</script>
 <style>
 :root{--bg:#eaf3fb;--card:#fff;--ink:#14324a;--muted:#5b7186;--line:#d5e3ef;--ok:#3f9b1f;--warn:#c98a00;--bad:#c53a28;--blue:#1c64bf}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -18,8 +19,21 @@ pre .e{color:#ff9b8e}pre .w{color:#ffd479}
 button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:8px 12px;background:#e3eef8;color:var(--blue);cursor:pointer}button.go{background:var(--blue);color:#fff}button.danger{background:#fbe1dd;color:var(--bad)}
 .msg{font-weight:600;word-break:break-all}.muted{color:var(--muted);font-size:13px}
 label{font-size:13px;color:var(--muted)}
+header{position:relative;padding-right:60px!important}.themebtn{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;padding:0;background:rgba(255,255,255,.18);color:#fff;font-size:18px}
+html[data-theme=dark]{--bg:#0e1b27;--card:#162736;--ink:#e3eef8;--muted:#9fb3c6;--line:#2a4053;--blue:#6fb2f2;color-scheme:dark}
+html[data-theme=dark] header{background:linear-gradient(180deg,#1f5f9e,#123f70)}
+html[data-theme=dark] .f{background:#1c3245}
+html[data-theme=dark] .alert{background:#3a1a15;color:#ffb4a8}
+html[data-theme=dark] .note{background:#3a3016;color:#ffe3a1}
+html[data-theme=dark] button{background:#1f3a52}
+html[data-theme=dark] button.go{background:#1c64bf;color:#fff}
+html[data-theme=dark] button.danger{background:#3a1a15;color:#ff9c8c}
+html[data-theme=dark] .themebtn{background:rgba(255,255,255,.12)}
+html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] textarea{background:#0e1b27;color:var(--ink)}
+html[data-theme=dark] pre{background:#081420}
+html[data-theme=dark] a{color:#8cc4f5}
 </style>
-<header><h1>Health · The Twenty-Gen Legacy</h1><p id="stamp"></p></header>
+<header><button class="themebtn" id="themeBtn" type="button" title="Theme">🌓</button><h1>Health · The Twenty-Gen Legacy</h1><p id="stamp"></p></header>
 <main id="main"></main>
 <script>
 const BOOTD=null, BOOTK=null;

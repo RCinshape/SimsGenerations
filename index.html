@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap">
+<script>/* theme: auto (same as the device) → dark → light */(function(){var K="tg-theme",m=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)");function get(){try{return localStorage.getItem(K)||"auto";}catch(e){return "auto";}}function apply(){var p=get(),d=p==="dark"||(p==="auto"&&m&&m.matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");var b=document.getElementById("themeBtn");if(b){b.textContent=p==="auto"?"🌓":p==="dark"?"🌙":"☀️";b.title="Theme: "+(p==="auto"?"same as your device":p)+". Tap to change.";b.setAttribute("aria-label",b.title);}}window.tgTheme=function(){var p=get(),n=p==="auto"?"dark":p==="dark"?"light":"auto";try{localStorage.setItem(K,n);}catch(e){}apply();};if(m&&m.addEventListener)m.addEventListener("change",apply);apply();document.addEventListener("DOMContentLoaded",function(){var b=document.getElementById("themeBtn");if(b)b.addEventListener("click",window.tgTheme);apply();});})();</script>
 <style>
 /* Sims-style skin. Three tabs: Neighborhood (everyone), My legacy (you), Plan (all 20 gens). Each heir has a colour; each girl has a colour. */
 :root{
@@ -269,6 +270,31 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
 .empty{padding:18px 16px;color:var(--muted);font-size:15px;text-align:center}
+
+/* ---------- dark mode ---------- */
+.themebtn{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;box-shadow:inset 0 0 0 2px var(--hair)}
+html[data-theme=dark]{--sky1:#0b1826;--sky2:#11233a;--bg:#0f2034;--surface:#172b42;--ink:#e6f0fa;--muted:#9fb6cc;--hair:#2b4763;
+  --shadow:0 6px 18px rgba(0,0,0,.45),inset 0 0 0 2px rgba(255,255,255,.06);color-scheme:dark}
+html[data-theme=dark] body{background:repeating-linear-gradient(45deg,rgba(255,255,255,.025) 0 2px,transparent 2px 26px),repeating-linear-gradient(-45deg,rgba(255,255,255,.025) 0 2px,transparent 2px 26px),linear-gradient(180deg,var(--sky1),var(--sky2) 55%);background-color:var(--sky2);background-attachment:fixed}
+html[data-theme=dark] .top{background:linear-gradient(180deg,#1a3149,#132638);box-shadow:0 2px 10px rgba(0,0,0,.4)}
+@media (max-width:700px){ html[data-theme=dark] .top .tabs{background:#132638;box-shadow:0 -2px 12px rgba(0,0,0,.4)} }
+html[data-theme=dark] .h1{color:#f2f8ff;text-shadow:none}
+html[data-theme=dark] .sub{color:#b8cde0}
+html[data-theme=dark] .pcard .head{background:linear-gradient(180deg,color-mix(in srgb,var(--pc) 24%,#172b42),#172b42)}
+html[data-theme=dark] .compose textarea:focus,html[data-theme=dark] .react,html[data-theme=dark] .btn.ghost,html[data-theme=dark] .twist,html[data-theme=dark] .always div,html[data-theme=dark] .namebtn,html[data-theme=dark] .toast,html[data-theme=dark] .goal input{background:var(--surface)}
+html[data-theme=dark] .react.on,html[data-theme=dark] .pill.play{background:#173a5c;color:#8cc4f5}
+html[data-theme=dark] .btn.ghost{color:#8cc4f5}
+html[data-theme=dark] .item.big{background:linear-gradient(90deg,#3b3216,var(--surface))}
+html[data-theme=dark] .goal input{border-color:#4a6a88}
+html[data-theme=dark] .ft .sim.heir,html[data-theme=dark] .ft .kid.next{background:#3b3216}
+html[data-theme=dark] .sheet{border-color:var(--hair)}
+html[data-theme=dark] .pill.done,html[data-theme=dark] .setstat.ok{background:#1f3a17;color:#8fd86a}
+html[data-theme=dark] .starsel button{color:#3b5570}
+html[data-theme=dark] .field textarea,html[data-theme=dark] .field input,html[data-theme=dark] .pick{background:#0f2034}
+html[data-theme=dark] .must{background:#3b3216;color:#ffe9a8}
+html[data-theme=dark] .setstat{background:#1c3349}
+html[data-theme=dark] .net{background:#3a1a15;color:#ff9c8c}
+html[data-theme=dark] a{color:#8cc4f5}
 </style>
 </head>
 <body>
@@ -281,6 +307,7 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
       <button class="tab" role="tab" data-tab="me" aria-selected="false">My legacy</button>
       <button class="tab" role="tab" data-tab="plan" aria-selected="false">Plan</button>
     </nav>
+    <button class="themebtn" id="themeBtn" type="button" title="Theme">🌓</button>
     <button class="meav" id="meBtn" type="button" hidden title="Switch player"></button>
   </div>
 </header>
@@ -508,6 +535,7 @@ const NATIVE=!!(window.google&&google.script&&google.script.run);   // the page 
 const WEB=!NATIVE&&!!window.TG_WEB;                                   // the page outside Google: talks to the same Google app with fetch, no Google sign-in
 const GAS=NATIVE||WEB;                                                // either way the Google app is the server (else: the PC server)
 if(WEB) window.addEventListener("hashchange",()=>{ const m=/[#&]g=([A-Za-z0-9_-]{20,120})/.exec(location.hash); if(m&&m[1]!==ls.get("tg-g")) location.reload(); });
+let GO=/[#&]go=install\b/.test(location.hash);   // link from the Discord "update your mod" post: open the installer right after login
 const GID=(()=>{ const m=/[#&]g=([A-Za-z0-9_-]{20,120})/.exec(location.hash); if(m){ ls.set("tg-g",m[1]); return m[1]; } return ls.get("tg-g")||""; })();
 const BOOT=window.TG_BOOT||{};
 const INVITE=BOOT.invite||qs.get("invite")||"", NEXT=GAS?"":(qs.get("next")||"");
@@ -1220,8 +1248,21 @@ async function enter(name,fresh,switched){
   mb.onclick=()=>openAccount();
   try{ await pull(); }catch(e){}
   if(!MINE){ try{ MINE=JSON.parse(ls.get("tg-mine-"+key(ME))||"null"); if(MINE){MINE.name=ME;LIVE.progress[key(ME)]=MINE;dirty=true;flush();} }catch(e){} }
-  if(LIVE.syncOn&&(switched||(!gameSeen()&&(fresh||!ls.get("tg-skip-"+key(ME)))))){ setupScreen(switched); return; }
+  if(LIVE.syncOn&&(switched||(!gameSeen()&&(fresh||!ls.get("tg-skip-"+key(ME)))))){ if(GO) clearGo(); setupScreen(switched); return; }
   show(MINE?TAB:"me");
+  if(GO) goInstall();
+}
+function clearGo(){ GO=false; try{ history.replaceState(null,"",location.pathname+location.search+location.hash.replace(/&go=install\b/,"").replace(/#go=install&?/,"#")); }catch(e){} }
+function goInstall(){
+  clearGo();
+  if(!LIVE.syncOn){ toast("The host hasn't switched game sync on yet.",true); return; }
+  openSheet({n:0,e:"🔧",c:"#3f9b1f",title:"Update your game",tag:"2 minutes · on your PC",traits:[]},
+    h("div",{class:"sbody"},h("div",{class:"panel"},h("div",{class:"pb",style:"display:grid;gap:12px"},
+      h("ol",{class:"bigsteps"},h("li",{},"Close The Sims 4."),h("li",{},"Download the installer and open it."),h("li",{},"Start the game again. Done!")),
+      h("button",{class:"btn go",type:"button",style:"justify-self:start",onclick:()=>download("installer")},"⬇  Download the installer"),
+      h("p",{class:"muted small"},"If Windows says “Windows protected your PC”: More info → Run anyway."),
+      MODS_ON()))),
+    "Update");
 }
 function openAccount(){
   openSheet({n:0,e:"👤",c:pcolor(ME),title:ME,tag:"Your account",traits:[]},
