@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Health · The Twenty-Gen Legacy</title></head><body>
+<style>
+:root{--bg:#eaf3fb;--card:#fff;--ink:#14324a;--muted:#5b7186;--line:#d5e3ef;--ok:#3f9b1f;--warn:#c98a00;--bad:#c53a28;--blue:#1c64bf}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:linear-gradient(180deg,#3a9ae8,#1c64bf);color:#fff;padding:18px 16px}header h1{margin:0;font-size:20px}header p{margin:4px 0 0;opacity:.9;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:16px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.ch{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.ch h2{margin:0;font-size:17px;flex:1}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}.ok{background:var(--ok)}.warn{background:var(--warn)}.bad{background:var(--bad)}.none{background:#9fb1c1}
+.cb{padding:12px 14px;display:grid;gap:10px}
+.facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.f{background:#f4f8fc;border-radius:10px;padding:8px 10px}.f b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.f span{font-weight:600;word-break:break-word}
+.alert{border-radius:10px;padding:9px 11px;background:#fdecea;color:#7d1d12;font-weight:600}.note{border-radius:10px;padding:9px 11px;background:#fff6db;color:#6b4a00}
+pre{margin:0;max-height:300px;overflow:auto;background:#0f2233;color:#d6e6f5;border-radius:10px;padding:10px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+pre .e{color:#ff9b8e}pre .w{color:#ffd479}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:8px 12px;background:#e3eef8;color:var(--blue);cursor:pointer}button.go{background:var(--blue);color:#fff}button.danger{background:#fbe1dd;color:var(--bad)}
+.msg{font-weight:600;word-break:break-all}.muted{color:var(--muted);font-size:13px}
+label{font-size:13px;color:var(--muted)}
+</style>
+<header><h1>Health · The Twenty-Gen Legacy</h1><p id="stamp"></p></header>
+<main id="main"></main>
+<script>
+const BOOTD=null, BOOTK=null;
+const HP=new URLSearchParams(location.hash.slice(1)), GID=HP.get("g")||"", KEY=BOOTK||HP.get("h")||"";
+const $=s=>document.querySelector(s);
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="text")e.textContent=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(v!=null&&v!==false)e.setAttribute(x,v);}k.forEach(c=>c!=null&&c!==false&&e.append(c));return e;};
+function ago(t){if(!t)return"never";const s=Math.max(1,Math.round((Date.now()-t)/1000));if(s<60)return"just now";const m=Math.round(s/60);if(m<60)return m+" min ago";const hh=Math.round(m/60);if(hh<48)return hh+" h ago";return Math.round(hh/24)+" days ago";}
+function call(action,name){
+  if(BOOTK) return new Promise((ok,bad)=>google.script.run.withSuccessHandler(ok).withFailureHandler(bad).hostAction(KEY,action,name==null?"":name));
+  return fetch(`https://script.google.com/macros/s/${GID}/exec`,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({host:KEY,action,arg:name==null?"":name})}).then(r=>r.json());   // no Google cookies: works with many Google accounts
+}
+function say(el,r){el.textContent=r&&r.msg?r.msg:(r&&r.ok?"Done.":"Didn't work.");}
+let MODV=3;
+function player(p){
+  const s=p.seen||{}, env=s.env||{}, meta=s.meta||{};
+  const age=s.at?Date.now()-s.at:Infinity, recentErr=s.errAt&&Date.now()-s.errAt<36e5*24&&(!s.snapAt||s.errAt>s.snapAt);
+  const cls=!s.at?"none":(age>3*864e5||recentErr)?"bad":age>864e5?"warn":"ok";
+  const problems=[];
+  if(!p.picks) problems.push("Hasn't opened the app yet.");
+  else if(!s.at) problems.push("Never connected. She should tap “Download the installer” on her PC and open it, then start The Sims 4.");
+  if((env.copies||[]).length>1) problems.push("More than one copy of the game file in Mods: "+env.copies.join(", "));
+  if(env.mod&&env.mod<MODV) problems.push(env.updReady>=MODV?"Update v"+MODV+" is installed; it starts when she restarts The Sims 4.":"Old game file (v"+env.mod+"). It updates itself at her next save (or she opens the installer again).");
+  if(meta.found===false) problems.push("PC helper can't find The Sims 4 folder.");
+  if(meta.modsOff||meta.scriptOff) problems.push("The Sims has mods or script mods switched OFF.");
+  if(s.at&&age>3*864e5) problems.push("No contact for "+ago(s.at).replace(" ago","")+". After a game update the game switches mods off.");
+  if(recentErr) problems.push("Last problem: "+s.err);
+  const way=env.transport?({python:"game's Python HTTPS",windows:"Windows HTTPS (WinHTTP)",pc:"PC sync (every 5 min)"}[env.transport]||env.transport):(s.via==="helper"?"PC helper":"—");
+  const f=(k,v)=>h("div",{class:"f"},h("b",{text:k}),h("span",{text:v==null||v===""?"—":String(v)}));
+  const out=h("span",{class:"msg"});
+  const onlyErr=h("input",{type:"checkbox"});
+  const pre=h("pre");
+  const drawLog=()=>{pre.textContent="";(p.lines||[]).filter(l=>!onlyErr.checked||/ (ERRO|WARN) /.test(l.t)).forEach(l=>{pre.append(h("span",{class:/ ERRO /.test(l.t)?"e":/ WARN /.test(l.t)?"w":"",text:(l.via==="helper"?"[helper] ":"")+l.t+"\n"}));});if(!pre.textContent)pre.textContent="(no log lines yet)";pre.scrollTop=1e9;};
+  onlyErr.addEventListener("change",drawLog);drawLog();
+  const twoStep=(label,action,cls2)=>{const b=h("button",{class:cls2||"",type:"button",text:label});let armed=false;b.onclick=async()=>{if(!armed){armed=true;b.textContent="Sure? Tap again";setTimeout(()=>{armed=false;b.textContent=label;},4000);return;}armed=false;b.textContent=label;try{say(out,await call(action,p.name));}catch(e){out.textContent="Didn't work: "+e.message;}};return b;};
+  return h("section",{class:"card"},
+    h("div",{class:"ch"},h("span",{class:"dot "+cls}),h("h2",{text:p.name}),h("span",{class:"muted",text:"Last contact: "+ago(s.at)})),
+    h("div",{class:"cb"},
+      ...problems.map(t=>h("div",{class:/^Last problem|OFF|Never|copy|helper can't/.test(t)?"alert":"note",text:t})),
+      h("div",{class:"facts"},f("Last contact",s.at?ago(s.at)+(s.via?" (via "+s.via+")":""):"never"),f("Last game file",s.snapAt?ago(s.snapAt):"none"),
+        f("Game file version",env.mod?"v"+env.mod:""),f("Sending way",way),f("Windows",env.os),f("Game version",env.game),f("Game's Python",env.py?env.py+(env.ssl?" · has ssl":" · no ssl")+(env.ctypes?" · has ctypes":""):""),
+        f("File in Mods",env.file),f("Households sent",(p.files||[]).length?(p.files.map(x=>x.hh+" ("+ago(x.at)+")").join(", ")):""),f("Opened the app",p.picks?p.picks+(p.picks===1?" time":" times"):"not yet")),
+      h("div",{class:"row"},h("label",{},onlyErr," only problems")),pre,
+      h("div",{class:"row"},twoStep("New game key","newkey","danger"),out)));
+}
+function draw(D){
+  MODV=D.modNow||MODV;
+  $("#stamp").textContent="Updated "+new Date(D.now).toLocaleString()+" · green = fine, amber = quiet for a day, red = needs a look";
+  const m=$("#main");m.textContent="";
+  D.players.forEach(p=>m.append(player(p)));
+  const n=D.notify||{}, nout=h("span",{class:"msg"});
+  const inp=(id,ph,val)=>h("input",{id,placeholder:ph,value:val||"",style:"width:100%;font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:10px"});
+  m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Notifications (Discord bot + email)"})),h("div",{class:"cb"},
+    h("label",{text:"Girls' Discord: feed channel webhook (every tick and post goes there)"}),inp("nFeed","https://discord.com/api/webhooks/…",n.feed),
+    h("label",{text:"YOUR Discord: alert channel webhook (problems, new connections, switches)"}),inp("nAlert","https://discord.com/api/webhooks/…",n.alert),
+    h("label",{text:"Email for alerts"}),inp("nMail","you@example.com",n.mail),
+    h("p",{class:"muted",text:"How to get a webhook link: in Discord, right-click the channel › Edit Channel › Integrations › Webhooks › New Webhook › Copy Webhook URL."}),
+    h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Save",onclick:async()=>{const v=id=>{const x=$(id).value.trim();return x.includes("••••")?"*":x;};say(nout,await call("notify",{feed:v("#nFeed"),alert:v("#nAlert"),mail:$("#nMail").value.trim()}));}}),
+      h("button",{type:"button",text:"Send a test",onclick:async()=>{nout.textContent="Sending…";say(nout,await call("notifytest"));}}),nout))));
+  const uout=h("span",{class:"msg"}), file=h("input",{type:"file",accept:".json"});
+  m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Mod updates"}),h("span",{class:"muted",text:"Live version: v"+MODV})),h("div",{class:"cb"},
+    h("p",{class:"muted",text:"Upload a signed mod-update-vN.json (Claude makes it with your signing key). Each game checks the signature, updates itself at its next save, and the girl restarts the game once."}),
+    h("div",{class:"row"},file,h("button",{class:"go",type:"button",text:"Upload mod update",onclick:async()=>{const f=file.files[0];if(!f){uout.textContent="Choose the file first.";return;}uout.textContent="Checking the signature…";say(uout,await call("update",await f.text()));}}),uout))));
+  const out=h("span",{class:"msg"});
+  m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Host tools"})),h("div",{class:"cb"},
+    h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Refresh",onclick:async()=>{try{const r=await call("refresh");if(r.ok)draw(r.data);}catch(e){out.textContent=e.message;}}}),
+      h("button",{type:"button",text:"Download all data (for Claude)",onclick:async()=>{const r=await call("export");const u=URL.createObjectURL(new Blob([r.text],{type:"application/json"}));const a=h("a",{href:u,download:r.name});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},4000);}}),
+      h("button",{type:"button",text:"Import data from the PC server",onclick:async()=>{say(out,await call("import"));}}),out),
+    h("p",{class:"muted",text:"Links (also in the setup log):"}),h("pre",{text:D.links.join("\n")}),
+    h("p",{class:"muted",text:"What happened lately:"}),h("pre",{text:(D.host||[]).map(x=>new Date(x.at).toLocaleString()+"  "+x.t).join("\n")||"(nothing yet)"}))));
+}
+if(!BOOTK) window.addEventListener("hashchange",()=>location.reload());
+if(BOOTD) draw(BOOTD);
+else if(!GID||!KEY) $("#main").textContent="Open this page with your full Health link.";
+else { $("#main").textContent="Loading…"; call("refresh").then(r=>{ if(r&&r.ok) draw(r.data); else $("#main").textContent=(r&&r.msg)||"Wrong link."; }).catch(()=>{ $("#main").textContent="Can't reach the app. Check the internet and refresh."; }); }
+</script>
+
+</body></html>

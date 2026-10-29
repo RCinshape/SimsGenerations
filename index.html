@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Twenty-Gen Legacy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap">
+<style>
+/* Sims-style skin. Three tabs: Neighborhood (everyone), My legacy (you), Plan (all 20 gens). Each heir has a colour; each girl has a colour. */
+:root{
+  --sky1:#9fd6f5; --sky2:#e6f5fd; --bg:#eaf6fd; --surface:#fff; --ink:#17324d; --muted:#557089; --hair:#d6e6f3;
+  --blue1:#3a9ae8; --blue2:#1c64bf; --green1:#71cf3f; --green2:#3f9b1f; --red:#c53a28; --gold:#f2b51d;
+  --font:"Nunito","Trebuchet MS",system-ui,sans-serif;
+  --shadow:0 6px 18px rgba(23,50,77,.14),inset 0 0 0 2px #fff;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;font-weight:600;-webkit-font-smoothing:antialiased;
+  background:repeating-linear-gradient(45deg,rgba(255,255,255,.2) 0 2px,transparent 2px 26px),repeating-linear-gradient(-45deg,rgba(255,255,255,.2) 0 2px,transparent 2px 26px),linear-gradient(180deg,var(--sky1),var(--sky2) 55%);
+  background-color:var(--sky2);background-attachment:fixed;min-height:100vh}
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px;border-radius:8px}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{text-wrap:balance}
+.wrap{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:8;background:linear-gradient(180deg,#fff,#eef7fe);border-bottom:2px solid var(--hair);box-shadow:0 2px 10px rgba(23,50,77,.1)}
+.top .wrap{display:flex;align-items:center;gap:10px;padding-block:10px}
+.logo{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.mark{width:36px;height:36px;border-radius:11px;background:linear-gradient(160deg,var(--green1),var(--green2));display:grid;place-items:center;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15);flex:none}
+.logo b{font-size:18px;font-weight:900;white-space:nowrap}
+.tabs{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:999px;box-shadow:inset 0 0 0 2px var(--hair)}
+.tab{padding:7px 14px;border-radius:999px;font-weight:900;color:var(--muted);font-size:14px;position:relative;white-space:nowrap}
+.tab[aria-selected="true"]{background:linear-gradient(180deg,var(--blue1),var(--blue2));color:#fff;box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
+.badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--red);color:#fff;font-size:11px;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.meav{flex:none}
+@media (max-width:700px){
+  .top .tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;border-radius:0;justify-content:space-around;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));background:#fff;box-shadow:0 -2px 12px rgba(23,50,77,.12)}
+  .tab{flex:1;text-align:center;padding:9px 6px}
+  main{padding-bottom:84px}
+  .logo b{font-size:16px}
+}
+
+main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
+.view{display:flex;flex-direction:column;gap:18px}
+.h1{font-size:clamp(26px,5vw,34px);font-weight:900;color:#0f2c4a;text-shadow:0 2px 0 rgba(255,255,255,.7);line-height:1.1}
+.sub{color:#234665;font-size:15px;font-weight:700}
+
+/* panels */
+.panel{background:var(--surface);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.ph{background:linear-gradient(180deg,var(--blue1),var(--blue2));color:#fff;padding:11px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.ph h2{font-size:17px;font-weight:900;text-shadow:0 1px 0 rgba(0,0,0,.15)}
+.ph span{font-size:13px;font-weight:700;opacity:.92}
+.pb{padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--blue2);font-weight:900}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* avatar */
+.av{width:var(--s,34px);height:var(--s,34px);border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:900;font-size:calc(var(--s,34px)*.45);background:var(--pc);box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 2px 4px rgba(23,50,77,.2);flex:none}
+
+/* race track */
+.track{position:relative;padding:8px 4px 4px}
+.rail{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;position:relative}
+.rail{row-gap:14px}
+.stop{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;min-width:0}
+.stop .dot{width:44px;height:44px;max-width:100%;aspect-ratio:1;border-radius:50%;background:var(--gc);display:grid;place-items:center;font-size:20px;box-shadow:inset 0 0 0 3px rgba(255,255,255,.6),0 2px 6px rgba(23,50,77,.2)}
+.stop .num{font-size:11px;font-weight:900;color:var(--muted)}
+.stop .who{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:30px}
+.stop .who .av{--s:26px}
+@media (max-width:560px){.stop .dot{width:30px;height:30px;font-size:14px}.stop .who .av{--s:22px}}
+
+/* player cards */
+.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.pcard{background:var(--surface);border-radius:20px;box-shadow:var(--shadow);overflow:hidden;text-align:left;display:flex;flex-direction:column;min-width:0}
+.pcard .head{display:flex;gap:10px;align-items:center;padding:12px 14px;background:linear-gradient(180deg,color-mix(in srgb,var(--pc) 16%,#fff),#fff)}
+.pcard .head .av{--s:44px}
+.pcard .head b{font-size:18px;font-weight:900;display:block}
+.pcard .head small{font-size:12px;color:var(--muted);font-weight:700}
+.pcard .gen{display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--hair)}
+.pcard .gen .em{width:38px;height:38px;border-radius:12px;background:var(--gc);display:grid;place-items:center;font-size:20px;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.pcard .gen div{min-width:0}
+.pcard .gen b{display:block;font-weight:900;font-size:15px;line-height:1.2}
+.pcard .gen span{font-size:13px;color:var(--muted)}
+.pcard .bar{margin:0 14px 10px}
+.bubble{margin:0 14px 14px;background:var(--bg);border-radius:14px;padding:8px 12px;font-size:14px;position:relative}
+.bubble::before{content:"";position:absolute;top:-6px;left:18px;border:6px solid transparent;border-top:0;border-bottom-color:var(--bg)}
+.bar{height:8px;border-radius:999px;background:var(--hair);overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green1),var(--green2));width:0;transition:width .3s}
+
+/* feed */
+.compose{display:flex;gap:10px;align-items:flex-start}
+.compose textarea{flex:1;min-width:0;border:2px solid var(--hair);background:var(--bg);border-radius:14px;padding:10px 12px;resize:none;height:46px;font-weight:600}
+.compose textarea:focus{outline:none;border-color:var(--blue1);background:#fff;height:84px}
+.feed{display:flex;flex-direction:column}
+.item{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--hair)}
+.item:first-child{border-top:0}
+.item .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.item .line{font-size:15px}
+.item .line b{font-weight:900}
+.item .quote{background:var(--bg);border-radius:12px;padding:8px 12px;font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere}
+.item .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted);font-weight:800}
+.gchip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 8px;background:var(--gc);color:#fff;font-size:12px;font-weight:900}
+.reacts{display:flex;gap:6px;flex-wrap:wrap}
+.react{border:2px solid var(--hair);border-radius:999px;padding:1px 8px;font-size:13px;font-weight:800;background:#fff;display:inline-flex;gap:4px;align-items:center}
+.react.on{border-color:var(--blue1);background:#e3f1fc}
+.react.add{color:var(--muted)}
+.item.big .line{font-size:16px}
+.item.big{background:linear-gradient(90deg,#fff6d6,#fff)}
+
+/* buttons */
+.btn{border-radius:999px;padding:10px 18px;font-weight:900;color:#fff;background:linear-gradient(180deg,var(--blue1),var(--blue2));box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),0 2px 6px rgba(23,50,77,.2);white-space:nowrap}
+.btn.go{background:linear-gradient(180deg,var(--green1),var(--green2))}
+.btn.ghost{background:#fff;color:var(--blue2);box-shadow:inset 0 0 0 2px var(--hair)}
+.btn.sm{padding:6px 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:not(:disabled):hover{filter:brightness(1.06)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* my legacy */
+.hero{border-radius:22px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface)}
+.band{background:var(--gc);color:#fff;padding:18px 18px 20px;position:relative}
+.band::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.16),rgba(0,0,0,.2));pointer-events:none}
+.band > *{position:relative;z-index:1}
+.band .em{font-size:48px;line-height:1}
+.band .n{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;opacity:.9;margin-top:8px}
+.band h2{font-size:clamp(26px,5vw,32px);font-weight:900;line-height:1.08;text-shadow:0 1px 0 rgba(0,0,0,.15)}
+.band .tag{font-size:17px;opacity:.95;margin-top:4px}
+.traits{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.traits span{background:#fff;color:var(--gc);border-radius:999px;padding:5px 12px;font-size:14px;font-weight:900}
+.heir{display:flex;gap:8px;align-items:center;margin-top:14px;background:rgba(255,255,255,.18);border-radius:14px;padding:8px 10px}
+.heir label{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;opacity:.9;flex:none}
+.heir input{flex:1;min-width:0;border:0;background:transparent;color:#fff;font-weight:900;font-size:17px;outline:none}
+.heir input::placeholder{color:rgba(255,255,255,.75)}
+.goal{display:flex;gap:12px;align-items:flex-start;padding:11px 16px;cursor:pointer;font-size:15px}
+.goal + .goal{border-top:1px solid var(--hair)}
+.goal input{appearance:none;-webkit-appearance:none;width:26px;height:26px;border-radius:50%;border:2px solid #b9cfe2;background:#fff;flex:none;margin:0;display:grid;place-items:center;cursor:pointer}
+.goal input:checked{background:linear-gradient(180deg,var(--green1),var(--green2));border-color:var(--green2)}
+.goal input:checked::after{content:"";width:7px;height:12px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.goal input:checked + span{color:var(--muted);text-decoration:line-through}
+.goal .rule{font-size:11px;font-weight:900;color:var(--blue2);text-transform:uppercase;letter-spacing:.05em;display:block}
+.list .rowi{display:flex;justify-content:space-between;gap:14px;padding:11px 16px;font-size:15px;align-items:baseline}
+.list .rowi + .rowi{border-top:1px solid var(--hair)}
+.list .rowi span:first-child{color:var(--muted);flex:none}
+.list .rowi span:last-child{text-align:right;font-weight:800;min-width:0}
+.twist{width:100%;text-align:left;border-radius:16px;padding:14px 16px;border:2px dashed var(--gc);background:#fff;display:flex;flex-direction:column;gap:4px}
+.twist b{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--gc);font-weight:900}
+.toggle{display:flex;gap:10px;align-items:center;padding:12px 16px;cursor:pointer}
+.toggle input{width:20px;height:20px;accent-color:var(--green2)}
+.tree{display:flex;flex-direction:column}
+.tree .t{display:flex;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid var(--hair)}
+.tree .t:first-child{border-top:0}
+.tree .em{width:34px;height:34px;border-radius:10px;background:var(--gc);display:grid;place-items:center;font-size:17px;flex:none}
+.tree .t div{flex:1;min-width:0}
+.tree .t b{display:block;font-weight:900}
+.tree .t span{font-size:13px;color:var(--muted)}
+.ft{padding:6px 14px 14px;display:flex;flex-direction:column}
+.ft .gen{position:relative;padding:12px 0 12px 54px;border-left:0}
+.ft .gen:not(:last-child)::after{content:"";position:absolute;left:21px;top:52px;bottom:-12px;width:3px;border-radius:2px;background:var(--hair)}
+.ft .badge{position:absolute;left:0;top:12px;width:44px;height:44px;border-radius:14px;background:var(--gc);display:grid;place-items:center;font-size:20px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.15);cursor:pointer;border:0}
+.ft .badge small{position:absolute;bottom:-16px;font-size:11px;font-weight:900;color:var(--muted);white-space:nowrap}
+.ft .couple{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ft .sim{display:inline-flex;flex-direction:column;background:var(--bg);border-radius:12px;padding:6px 10px;min-width:0;max-width:100%}
+.ft .sim b{font-weight:900;overflow-wrap:anywhere}.ft .sim span{font-size:12px;color:var(--muted)}
+.ft .sim.heir{background:#fff6d6;box-shadow:inset 0 0 0 2px var(--gold)}
+.ft .sim.dead{opacity:.7}
+.ft .heart{font-size:15px}
+.ft .kids{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+.ft .kids>em{font-style:normal;font-size:12px;font-weight:900;color:var(--muted);margin-right:2px}
+.ft .kid{font-size:13px;font-weight:800;background:var(--surface);box-shadow:inset 0 0 0 2px var(--hair);border-radius:999px;padding:3px 10px}
+.ft .kid.next{box-shadow:inset 0 0 0 2px var(--gold);background:#fff6d6}
+.ft .ok{color:var(--green2)}.ft .gap{color:var(--muted);font-size:14px}
+.ft .roots{font-size:13px;color:var(--muted);padding:4px 0 2px 54px}
+.stars{color:var(--gold);letter-spacing:1px;white-space:nowrap}
+
+/* plan */
+.always{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--hair)}
+.always div{background:#fff;padding:14px;display:flex;flex-direction:column;gap:2px}
+.always b{font-weight:900;color:var(--blue2)}
+.always span{font-size:13px;color:var(--muted)}
+@media (max-width:760px){.always{grid-template-columns:repeat(2,minmax(0,1fr))}.always div:last-child{grid-column:1/-1}}
+.never{font-size:14px;color:var(--muted);padding:12px 16px;border-top:1px solid var(--hair)}
+.never b{color:var(--red);font-weight:900}
+.disc details{border-top:1px solid var(--hair)}
+.disc summary{cursor:pointer;list-style:none;padding:13px 16px;font-weight:900;color:var(--blue2);display:flex;justify-content:space-between}
+.disc summary::-webkit-details-marker{display:none}
+.disc summary::after{content:"›";font-size:20px;transform:rotate(90deg)}
+.disc details[open] summary::after{transform:rotate(-90deg)}
+.disc ul{margin:0;padding:0 16px 14px 34px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+.tile{position:relative;text-align:left;border-radius:22px;padding:14px 14px 16px;min-height:200px;display:flex;flex-direction:column;gap:5px;color:#fff;background:var(--gc);box-shadow:inset 0 0 0 3px rgba(255,255,255,.55),inset 0 -6px 0 rgba(0,0,0,.18),0 6px 14px rgba(23,50,77,.22);overflow:hidden}
+.tile::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.18),rgba(0,0,0,.18));pointer-events:none}
+.tile > *{position:relative;z-index:1}
+.tile .em{font-size:36px;line-height:1}
+.tile .n{font-size:12px;font-weight:900;opacity:.85;text-transform:uppercase;letter-spacing:.06em;margin-top:auto}
+.tile .t{font-size:18px;font-weight:900;line-height:1.15}
+.tile .tag{font-size:13px;opacity:.95;line-height:1.3}
+.tile .kids{align-self:flex-start;background:rgba(255,255,255,.92);color:var(--gc);border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900}
+.tile .here{display:flex;gap:3px;margin-top:6px;min-height:22px}
+.tile .here .av{--s:22px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(15,44,74,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center;padding-top:max(24px,env(safe-area-inset-top,0px))}
+@media (min-width:700px){.scrim{align-items:center;padding:40px 20px}}
+.sheet{background:var(--bg);width:100%;max-width:620px;max-height:100%;overflow:auto;border-radius:22px 22px 0 0;border:3px solid #fff;box-shadow:0 20px 60px rgba(0,0,0,.3);overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (min-width:700px){.sheet{border-radius:22px}}
+.sheet .band .bar2{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.circ{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.25);display:grid;place-items:center;font-size:18px;color:#fff;font-weight:900}
+.sbody{padding:18px;display:flex;flex-direction:column;gap:16px}
+.ghead{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--blue2);font-weight:900;margin:0 6px 8px;display:flex;justify-content:space-between}
+.girl{display:flex;gap:12px;padding:12px 16px;border-top:1px solid var(--hair)}
+.girl:first-child{border-top:0}
+.girl .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;font-size:14px}
+.girl .info b{font-size:15px;font-weight:900}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:900;background:var(--bg);color:var(--muted)}
+.pill.play{background:#e3f1fc;color:var(--blue2)} .pill.done{background:#e5f6da;color:var(--green2)}
+.starsel{display:flex;gap:4px}
+.starsel button{font-size:32px;color:#cfdbe6;line-height:1}
+.starsel button[aria-pressed="true"]{color:var(--gold)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field textarea,.field input{border:2px solid var(--hair);background:#fff;border-radius:12px;padding:9px 12px;font-weight:600;width:100%}
+.field textarea{min-height:72px;resize:vertical}
+
+/* identity */
+.gate{max-width:560px;margin:30px auto 0;width:100%}
+.btn.big{font-size:19px;padding:16px 22px;width:100%;margin:6px 0}
+.btn.big:disabled{filter:grayscale(1);opacity:.55}
+.pick{font:inherit;font-size:19px;font-weight:800;padding:13px 14px;border-radius:14px;border:3px solid var(--blue1);background:#fff;width:100%;color:inherit}
+.must{background:#fff4c2;border:3px solid #f2b51d;border-radius:16px;padding:12px 14px;font-weight:700;line-height:1.45}
+.must b{font-weight:900}
+.bigsteps{list-style:none;margin:0;padding:0;display:grid;gap:12px;counter-reset:s}
+.bigsteps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;font-weight:700}
+.bigsteps li::before{content:counter(s);width:30px;height:30px;border-radius:50%;background:var(--green2);color:#fff;display:grid;place-items:center;font-weight:900}
+.setstat{font-weight:900;padding:10px 12px;border-radius:12px;background:#eef3f8;text-align:center}
+.setstat.ok{background:#e3f6da;color:var(--green2)}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+.namebtn{border-radius:18px;padding:16px 10px;background:#fff;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:900;font-size:16px}
+.namebtn .av{--s:56px}
+.namebtn:hover{transform:translateY(-2px)}
+
+/* toast, net bar, confetti */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:30;background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(23,50,77,.25);display:flex;gap:10px;align-items:center;padding:10px 16px 10px 10px;font-weight:800;max-width:calc(100% - 32px)}
+@media (min-width:701px){.toast{bottom:24px}}
+.toast .ic{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(180deg,var(--green1),var(--green2));flex:none}
+.toast.bad .ic{background:var(--red)}
+.net{background:#fde5e0;color:var(--red);border:2px solid var(--red);border-radius:14px;padding:8px 12px;font-weight:800;font-size:14px}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
+.confetti i{position:absolute;top:-20px;width:10px;height:14px;border-radius:3px;animation:fall 2.4s ease-in forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.8}}
+@media (prefers-reduced-motion:reduce){.confetti{display:none}.bar i{transition:none}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.empty{padding:18px 16px;color:var(--muted);font-size:15px;text-align:center}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="logo"><div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/></svg></div><b>Twenty-Gen Legacy</b></div>
+    <nav class="tabs" id="tabs" role="tablist" hidden>
+      <button class="tab" role="tab" data-tab="hood" aria-selected="true">Neighborhood<span class="badge" id="newBadge" hidden></span></button>
+      <button class="tab" role="tab" data-tab="me" aria-selected="false">My legacy</button>
+      <button class="tab" role="tab" data-tab="plan" aria-selected="false">Plan</button>
+    </nav>
+    <button class="meav" id="meBtn" type="button" hidden title="Switch player"></button>
+  </div>
+</header>
+
+<main><div class="wrap">
+  <div class="net" id="net" hidden>Can't reach the host's server. Your last change will send when it's back.</div>
+
+  <!-- who are you -->
+  <section id="gate" class="gate" hidden>
+    <div class="panel" id="authPanel"></div>
+    <p class="muted small" id="gateMsg" style="margin-top:12px;text-align:center"></p>
+  </section>
+
+  <!-- NEIGHBORHOOD -->
+  <section class="view" id="v-hood" hidden>
+    <div><h1 class="h1">The Neighborhood</h1><p class="sub" id="hoodSub"></p></div>
+    <div class="panel"><div class="ph"><h2>Who's where</h2><span>Generation 1 → 20</span></div><div class="pb"><div class="track"><div class="rail" id="rail"></div></div></div></div>
+    <div class="players" id="players"></div>
+    <div class="panel">
+      <div class="ph"><h2>What's happening</h2><span id="feedCount"></span></div>
+      <div class="pb"><div class="compose"><textarea id="post" maxlength="400" placeholder="Share a moment…"></textarea><button class="btn go" id="postBtn" type="button">Share</button></div></div>
+      <div class="feed" id="feed"></div>
+    </div>
+  </section>
+
+  <!-- MY LEGACY -->
+  <section class="view" id="v-me" hidden></section>
+
+  <!-- PLAN -->
+  <section class="view" id="v-plan" hidden>
+    <div><h1 class="h1">The plan</h1><p class="sub">Twenty heirs. Twenty worlds. One very dramatic family.</p></div>
+    <div class="panel">
+      <div class="ph"><h2>Legacy rules</h2><span>Every generation</span></div>
+      <div class="always">
+        <div><b>Max the skills</b><span>Every gen</span></div>
+        <div><b>Finish the aspiration</b><span>Every gen</span></div>
+        <div><b>1–2 kids</b><span>Unless the gen says more</span></div>
+        <div><b>New world</b><span>Build or use the Gallery</span></div>
+        <div><b>Cheats OK</b><span>Twists &amp; dares optional</span></div>
+      </div>
+      <p class="never"><b>Never:</b> gardening, fishing, collecting, camping, holidays, vampires, aliens, plant sims, royalty.</p>
+      <div class="disc">
+        <details><summary>All the rules</summary><ul>
+          <li>Same story, your own sim. Play at your own speed.</li>
+          <li>Tick goals here as you play. Everyone sees it in the Neighborhood.</li>
+          <li>Finish a generation here to rate it and answer the chat question.</li>
+          <li>You pick the heir. Any gender.</li>
+          <li>Normal lifespan. The old generation lives on until they die.</li>
+          <li>Mature themes are fine. Nothing explicit.</li>
+          <li>Marry into another girl's family from the Gallery at least once.</li>
+          <li>Open a twist card only when you start that generation. Skip any twist you hate.</li>
+        </ul></details>
+        <details><summary>How your answers built this</summary><ul>
+          <li><b>Bean:</b> drama, exes, fame, horses, robots, and a dare in every generation.</li>
+          <li><b>Dani:</b> never more than 2 kids, one hard grind per gen, a shop, crafting and coding. Dark but never weepy.</li>
+          <li><b>Emmy:</b> your dream ranch, detective, crime boss, Reaper, werewolves, fairies and a new world every gen.</li>
+          <li><b>Kimmy:</b> twist cards, a haunted house, a spellcaster, decorating, and no building if you don't want to.</li>
+        </ul></details>
+      </div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+  </section>
+</div></main>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="toast" id="toast" hidden><span class="ic" id="toastIc">✓</span><span id="toastTx"></span></div>
+
+<script>window.TG_WEB=1;</script>
+<script>
+const GENS=[
+ {n:1,e:"🧁",c:"#d63f7a",title:"The Hopeless Romantic",tag:"Love at first sight. Again. And again.",
+  traits:["Lovebug","Cheerful","Family Oriented"],asp:"Romantic Explorer",career:"Baker",skills:["Baking","Cooking","Romance"],world:"Your choice",home:"Bakery, flat upstairs",start:"Every last penny",
+  story:["Your natural talent for baking bread and decorating sweet treats made you think that owning a bakery would be a piece of cake *pun fully intended*. So, with stars in your eyes and every last penny to your name, you poured it all into opening your dream bakery. What you didn’t expect was to fall in love and get pregnant so quickly. For a while, life felt perfect. Business was picking up, your little family was thriving, and love was sweet. But out of nowhere, someone else walked into your life. And just like that, your heart shifted. You never thought you'd be the heartbreaker, but… the heart wants what the heart wants.","You left your partner for this new love, and soon after, found yourself pregnant… again. The bakery was booming, your kids were getting along, and your heart felt full. You were madly in love, and for once, everything felt just right. Until they walked in. The moment you saw them, it hit you. Love at first sight, all over again. You couldn’t ignore it. So you broke things off once more, chasing what felt like your true soulmate. You just can’t help that you’re a hopeless romantic."],
+  goals:["Sell baked goods from a table or the Home Chef Hustle stand (optional)","Open a bakery: Get to Work retail or a Businesses & Hobbies small business","Three serious relationships, a baby with each","Make a family recipe and pass it down","Marry your final partner and live happily"],
+  bonus:"Give the lot the Simple Living lot trait",noKidRule:true,why:"Your first gen, exactly as you wrote it.",chat:"Which partner was the real soulmate?"},
+ {n:2,e:"🔍",c:"#b7791f",title:"The Bloodhound",tag:"Everyone lies. You just notice first.",
+  traits:["Genius","Paranoid","Self-Assured"],asp:"StrangerVille Mystery",career:"Detective",skills:["Logic","Writing","Charisma"],world:"StrangerVille",home:"Weathered desert Victorian",start:"Cheapest lot",
+  story:["Raised by a parent who fell in love every other Tuesday, you learned one thing early: people lie. Partners lie, customers lie, and the 'just friends' at the bakery definitely lied. So you became a detective and moved to the strangest town you could find, where the sky glows at night and everyone is hiding something. You can crack any alibi. The one person you can't read is the one you're falling for. This time, you'll find out every secret before you say 'I do'."],
+  why:"Emmy's detective dream, in a town that isn't boring base game for Kimmy.",chat:"Who did your detective fall for, and what were they hiding?",
+  goals:["Top of the Detective career","Adopt a dog and teach it 3 tricks","Date a Kleptomaniac, Evil or Noncommittal sim. Marry them or expose them","Write a book about your parent's love life"],
+  bonus:"Your love interest comes from another girl's Gallery family",dare:"Buy something ridiculous after every promotion",
+  twist:"Your dog digs up a locket with a photo of one of Gen 1's exes. Find out what happened to them."},
+ {n:3,e:"🐺",c:"#b3261e",title:"The Black Sheep",tag:"A cop's kid. A criminal. A wolf.",
+  traits:["Hot-Headed","Noncommittal","Mean"],asp:"Wildfang Renegade",career:"Criminal · Boss",skills:["Mischief","Fitness","Charisma"],world:"Moonwood Mill",home:"Grunge cabin",start:"Almost nothing",
+  story:["Your parent spent their whole life catching criminals, so of course you became one. A pickpocketed wallet here, a 'borrowed' car there. Then, one full-moon night in the Moonwood Mill woods, something bit back. Now you're faster, angrier and allergic to commitment. Why pick one heart when the moon gives you this much energy? Your detective parent keeps calling. You keep not answering. Somewhere under the fur is someone who wants to belong. Tonight, though, you're howling."],
+  why:"Emmy gets werewolves and crime. Bean and Kimmy get exes and an open relationship.",chat:"Did your sim ever make peace with the detective parent?",
+  goals:["Become a werewolf and reach the top rank","Top of the Criminal career","An open relationship with two sims at once","A huge fight with your detective parent"],
+  bonus:"Take the Cure Seeker aspiration afterwards. Or stay wild",dare:"Wolf out at a family dinner",
+  twist:"A spellcaster offers a cure. The price: reset your best skill to 0. Accept or refuse."},
+ {n:4,e:"🐎",c:"#2f855a",title:"Wild Hearts Ranch",tag:"Finally, some peace. Probably.",
+  traits:["Ambitious","Good","Loves Outdoors"],asp:"Expert Nectar Maker",career:"Own ranch business",skills:["Nectar Making","Riding","Charisma"],world:"Chestnut Ridge",home:"Rustic ranch",start:"Cheapest ranch lot",kids:2,
+  story:["After a childhood of full moons, broken doors and police sirens, you wanted one thing: quiet. You drove until the roads turned to dirt and found a falling-apart ranch with a half-dead grapevine. Rides before sunrise. Nectar bottled while the sky turns pink. Slowly the ranch blooms, and so do you. Then there's the someone who keeps 'forgetting' their hat on your porch. For the first time in this family, love is slow, warm and normal. Don't jinx it."],
+  why:"Emmy's dream gen: horse breeder and nectar maker. Dani and Kimmy get a small business.",chat:"Best horse name? Best nectar name?",
+  goals:["Own 2 horses and breed a foal","Win the highest horse competition you can","Run the ranch as a small business: nectar and riding lessons","Name your best nectar after the Gen 1 bakery","Marry the one with the hat","Have 2 kids and teach both to ride"],
+  bonus:"Do Championship Rider too",dare:"Name every horse after a past family member",
+  twist:"A teen arrives: your half-sibling from Gen 3's wild years. Take them in for a sim week."},
+ {n:5,e:"💀",c:"#4c3a8f",title:"Death Becomes You",tag:"Works for the Grim Reaper. Great at small talk.",
+  traits:["Macabre","Goofball","Romantic"],asp:"Joke Star",career:"Reaper",skills:["Thanatology","Comedy","Charisma"],world:"Ravenwood",home:"Haunted gothic manor",start:"Your choice",
+  story:["Growing up on a ranch, you learned that everything has a season. While your siblings named the foals, you held the funerals. Your parent called it a phase. It wasn't. Now you work for the Grim Reaper: clock in, collect souls, home for dinner. The robe is fabulous and the jokes write themselves. Then you meet someone who keeps cheating death. Every time their name is on your list, you 'forget' to show up. Professional? No. Romantic? Deeply."],
+  why:"Emmy and Kimmy get the Reaper, dramatic deaths and a haunted house. Dark, but funny for Dani.",chat:"Best death of the generation?",
+  goals:["Top of the Reaper career","Marry a sim with the Chased By Death trait","Live in a haunted house all generation","Turn an elder's funeral into a party","A dramatic death in the family, not old age"],
+  dare:"Wear the reaper robe to your wedding",
+  twist:"The Grim Reaper comes for dinner. Become best friends before the generation ends."},
+ {n:6,e:"🎨",c:"#0f7f78",title:"Ink & Clay",tag:"Two crushes. One studio. Zero chill.",
+  traits:["Creative","Shady","Art Lover"],asp:"Esteemed Entrepreneur",career:"Own tattoo & pottery studio",skills:["Tattooing","Pottery","Painting"],world:"Nordhaven",home:"Boho studio, flat above",start:"Small inheritance",
+  story:["The reaper's kid grew up around skulls, so tattoos were the natural next step. Tattoos in the front, a pottery wheel in the back, a playlist that never stops. Customers come in nervous and leave with art forever, or until they regret it. Business is booming. Your heart is a mess: the regular who books a tattoo every week just to talk to you, and the potter who shares your late nights. You never meant to fall for both. They find out on the same day. Oops."],
+  why:"Dani gets crafting and a shop. Bean and Emmy get a love triangle. Kimmy gets a spellcaster twist.",chat:"Who did you pick, and who did you break?",
+  goals:["Open the studio and reach its best rating","Tattoo 10 customers","Date two sims at once, get caught, choose one","Tattoo every living family member"],
+  bonus:"Make a pottery piece for each past generation",dare:"A random wheel picks your first tattoo",
+  twist:"The potter is secretly a spellcaster. Learn 3 spells, or end it before you get hexed."},
+ {n:7,e:"⚡",c:"#5b7f17",title:"Off the Grid",tag:"No bills. No boss. No help.",
+  traits:["Maker","Green Fiend","Self-Assured"],asp:"Master Maker",career:"Civil Designer",skills:["Fabrication","Handiness","Logic"],world:"Evergreen Harbor",home:"Minimal, self-made",start:"Only what the game gives",kids:3,
+  story:["Your parent's studio was loud, crowded and full of drama. You want the opposite, and you want to make it yourself. A rusty plot by the harbour, no power company, no water bill, just a fabricator and a lot of confidence. Every chair and every solar panel is yours. The neighbours think you're strange until they start asking you to make things for them. And the civic planner who keeps 'inspecting' your house doesn't seem to mind the sawdust at all."],
+  why:"Emmy gets off-grid life. Dani gets fabrication and lot traits. Bean and Kimmy get rags to riches.",chat:"Show your best self-made room.",
+  goals:["Top of the Civil Designer career","Off-the-Grid lot trait all generation","Fabricate every piece of furniture in one room","Pass a Neighborhood Action Plan","Have 3 kids, all raised off the grid"],
+  bonus:"Rags to riches: start in a shack, upgrade twice",dare:"No bought furniture for a sim week",
+  twist:"Spin 1–10 and multiply by §1,000. That's your budget until you top your career."},
+ {n:8,e:"⭐",c:"#d9601a",title:"Main Character Energy",tag:"Famous first. Sorry later.",
+  traits:["Self-Assured","Outgoing","Jealous"],asp:"World-Famous Celebrity",career:"Actor",skills:["Acting","Charisma","Media Production"],world:"Copperdale → Del Sol Valley",home:"Glam Y2K mansion",start:"Teen follower money",
+  story:["Growing up in a house built from scraps made you two things: creative, and desperate to be seen. A ring light at Copperdale High. Followers by graduation. An agent by twenty. Now you're in Del Sol Valley chasing big roles and bigger headlines. The paparazzi love you. Your co-stars love you a little too much. One very public kiss becomes a scandal, the scandal becomes a breakup, and the breakup becomes your best press ever. You're the main character."],
+  why:"Bean gets fame, teen years and a scandal. Dani and Kimmy get red-carpet fashion.",chat:"Post your best red-carpet screenshot.",
+  goals:["Get famous online as a teen, before you move","Reach 5-star celebrity","Top of the Actor career","Survive a public breakup scandal","Design 5 red-carpet looks"],
+  bonus:"Date a celebrity from another girl's Gallery family",dare:"A wheel picks your stage name",
+  twist:"Another girl's sim leaks your secrets to the press. Start a public feud."},
+ {n:9,e:"✨",c:"#2b6fd6",title:"Glitch Fairy",tag:"Has wings. Codes anyway.",
+  traits:["Disruptive","Geek","Creative"],asp:"Computer Whiz",career:"Tech Guru",skills:["Programming","Robotics","Video Gaming"],world:"Innisgreen",home:"Kitsch cottage, many screens",start:"Your choice",
+  story:["Fame skipped you. Magic didn't. One rainy night you followed a glowing light into the woods and came back with wings, a taste for other people's emotions, and a habit of making gadgets go haywire. Innisgreen's fairies think computers are rude. You think they're the future. You build robots by day, game by night, and snack on the drama in every room. There's one person whose calm you can't read at all, and you can't stop trying."],
+  why:"Emmy and Kimmy get fairies. Bean and Dani get coding, gaming and robots.",chat:"Did anyone find out you're a fairy?",
+  goals:["Become a fairy and reach Radiant rank","Top of the Tech Guru career","Build a servo and make it family","Marry a Skeptical sim. They don't believe in fairies… yet"],
+  bonus:"Keep your wings secret until the wedding",dare:"Drain someone's emotions at a party until they storm off",
+  twist:"Your servo gets jealous of your partner. Keep both happy for a sim week."},
+ {n:10,e:"🔮",c:"#7b3fb8",title:"Half Magic",tag:"Two little witches. Zero control.",kids:2,
+  traits:["Erratic","Creative","Self-Assured"],asp:"Spellcraft & Sorcery",career:"Painter",skills:["Painting","Charisma","Logic"],world:"Glimmerbrook",home:"Crooked witchy cottage",start:"Your choice",
+  story:["Your fairy parent made gadgets explode. You make whole rooms explode. Magic runs wild in this family now, so you move to Glimmerbrook to learn how to control it. You paint by day and cast spells by night, and half of them go wrong. Then come the twins, or the two babies close together, and suddenly there are three sims in the house who can turn the cat into a frog. Your partner doesn't know about magic. Yet."],
+  why:"Kimmy's spellcasters, and art for Bean. This gen needs 2 kids.",chat:"Best spell disaster?",
+  goals:["Become a spellcaster and reach the top spellcaster rank","Top of the Painter career","Paint a portrait of your fairy parent","Marry a sim who doesn't know about magic, then show them","Have 2 kids. Both get a spell book on their birthday"],
+  bonus:"Learn 10 spells",dare:"Curse someone at a family dinner",
+  twist:"One of your kids shows no magic at all. Find them a different talent before they become a teen."},
+ {n:11,e:"🐾",c:"#b85c38",title:"Paws & Claws",tag:"Loves animals. People are optional.",
+  traits:["Dog Lover","Cat Lover","Neat"],asp:"Friend of the Animals",career:"Own vet clinic",skills:["Veterinarian","Pet Training","Charisma"],world:"Brindleton Bay",home:"Seaside clinic with a flat above",start:"Small inheritance",
+  story:["Growing up in a house full of chaos magic, the only ones who stayed calm were the pets. So you became their doctor. You open a vet clinic by the sea in Brindleton Bay, and soon every dog, cat and very confused frog in town comes through your door. Then there's the owner who brings in a perfectly healthy cat every single week. The cat is fine. The owner is not fine. The owner is very much into you."],
+  why:"Bean and Emmy love cats and dogs. Dani and Kimmy get a small business.",chat:"Best pet name in your house?",
+  goals:["Open a vet clinic and reach 5 stars","Adopt 2 pets and train both of them","Treat 20 patients","Date the owner of the perfectly healthy cat"],
+  bonus:"Adopt a pet from another girl's Gallery family",dare:"Let your pets name your first baby (spin a wheel)",
+  twist:"A stray dog arrives wearing Gen 2's old dog tag. Adopt it and find out where it's been."},
+ {n:12,e:"🧜‍♀️",c:"#0b8ea6",title:"Siren Song",tag:"Half sim. Half sea. All trouble.",
+  traits:["Romantic","Self-Assured","Ambitious"],asp:"Beach Life",career:"Conservationist",skills:["Singing","Charisma","Fitness"],world:"Sulani",home:"Boho beach house",start:"Cheapest beach lot",
+  story:["The vet's kid always loved the water a little too much. On a trip to Sulani you eat a strange piece of kelp, and your legs turn into a tail. Now you protect the reef by day and sing to sailors by night. One song is enough to pull anyone into the water and into love. Using it would be cheating. You use it anyway. The problem: the one you lured in wants to know why they suddenly can't stop thinking about you."],
+  why:"Kimmy and Bean said yes to mermaids. A new world and a new life in the sea.",chat:"Who fell for the siren song?",
+  goals:["Become a mermaid","Top of the Conservationist career","Use Siren's Call on a sim and make them fall in love","Live in a beach house on Sulani","Have a child with a mermaid tail"],
+  bonus:"Swim between islands instead of taking the boat",dare:"Sing your partner into the sea on your wedding day",
+  twist:"Your partner finds out you're a mermaid at the worst possible moment. You choose when."},
+ {n:13,e:"🔑",c:"#546a7b",title:"House Rules",tag:"Owns the building. Owns the drama.",
+  traits:["Ambitious","Neat","Snob"],asp:"Five-Star Property Owner",career:"Interior Decorator",skills:["Handiness","Charisma","Logic"],world:"Tomarang",home:"Apartment building (Gallery is fine)",start:"Enough for one building",
+  story:["A childhood on the beach made you want walls, rules and a lock on every door. So you buy an apartment building in Tomarang and become the landlord everyone talks about. You decorate every flat in its own style, and the tenants love it. Mostly. One never pays rent. One plays drums at 3 a.m. And one keeps asking you to come and check the 'broken' sink, which is never broken."],
+  why:"Bean gets landlord drama. Emmy, Dani and Kimmy get decorating. Download the building if you don't want to build.",chat:"Worst tenant?",
+  goals:["Own a building with at least 3 flats for rent","Keep every flat rented for a full sim week","Top of the Interior Decorator career","Decorate each flat in a different style","Deal with the tenant who never pays: evict them or befriend them"],
+  bonus:"Date a tenant",dare:"Raise the rent on your ex",
+  twist:"The building has a sealed-off flat. Open it. Something from Gen 5 is inside."},
+ {n:14,e:"👨‍👩‍👧‍👦",c:"#8a6d1f",title:"The Middle Child",tag:"Three kids. One parent. No favourites. (Lies.)",kids:3,
+  traits:["Family-Oriented","Goofball","Childish"],asp:"Big Happy Family",career:"Education",skills:["Parenting","Charisma","Logic"],world:"San Sequoia",home:"Big family house",start:"Your choice",
+  story:["You grew up as the forgotten middle kid in a building full of tenants. You promised yourself your own kids would never feel invisible. So you become a teacher and have three of them: one loud, one quiet, and one who is somehow always on the roof. You try to give each kid the same love. You fail in very funny ways. Somewhere in the chaos, an ex comes back to co-parent, and the house gets even louder."],
+  why:"This gen needs 3 kids, just once. Emmy gets co-parenting drama. Dani: the other gens stay at 1 or 2.",chat:"Which kid is the favourite? Be honest.",
+  goals:["Have 3 kids","Give each kid a different hobby and max one childhood skill each","Top of the Education career","Co-parent with an ex for at least one sim week","Throw a family party where all 3 kids are happy at once"],
+  bonus:"Get all 3 kids to be close with each other",dare:"Let a wheel pick each kid's name",
+  twist:"The middle kid runs away for a day. Find them before dinner."},
+ {n:15,e:"🍝",c:"#9c3d54",title:"Secret Sauce",tag:"Feeds everyone. Fights with the critics.",
+  traits:["Foodie","Perfectionist","Hot-Headed"],asp:"Master Chef",career:"Own restaurant",skills:["Gourmet Cooking","Mixology","Charisma"],world:"Windenburg",home:"Townhouse near the restaurant",start:"Small loan from the family",
+  story:["When you feed three siblings every night, you learn to cook fast and loud. So you open your own restaurant in Windenburg. The food is perfect. Your temper is not. A food critic comes in, eats one bite and gives you one star. You are furious. You are also, somehow, on a date with them the next week."],
+  why:"Dani and Bean love cooking. Kimmy gets a business. Everyone gets the critic drama.",chat:"What was your signature dish?",
+  goals:["Open a restaurant and reach 5 stars","Create a signature dish and name it after a past heir","Hire a family member and fire them at least once","Date the critic who gave you one star"],
+  bonus:"Put the Gen 1 family recipe on the menu",dare:"Serve the critic a burnt dish on purpose",
+  twist:"A kitchen fire on opening night. Save the restaurant, or let it burn and start again."},
+ {n:16,e:"🗿",c:"#a0612c",title:"The Lost Temple",tag:"Finds the treasure. Keeps the curse.",
+  traits:["Adventurous","Clumsy","Self-Assured"],asp:"Jungle Explorer",career:"Scientist",skills:["Archaeology","Selvadoradian Culture","Fitness"],world:"Oasis Springs + trips to Selvadorada",home:"Desert house full of relics",start:"Your choice",
+  story:["Restaurants were too small for you. You want the whole world. So you study old ruins as a scientist and go to the jungles of Selvadorada to find a temple nobody has entered in centuries. You find it. You also find a curse, a holiday romance with your guide, and a treasure that might not want to leave."],
+  why:"Adventure for everyone. One big treasure, no collecting.",chat:"What curse did you get?",
+  goals:["Reach the temple's treasure chamber","Get cursed, then cure the curse","Top of the Scientist career","Have a romance on the trip and bring them home"],
+  bonus:"Hang one real temple relic in the house",dare:"Go on the trip without a map (no reading guides)",
+  twist:"The curse follows you home. Spin a wheel to choose which one."},
+ {n:17,e:"🎸",c:"#3a2f52",title:"Rock Bottom",tag:"Loud music. Louder feelings.",
+  traits:["Music Lover","Hot-Headed","Outgoing"],asp:"Musical Genius",career:"Entertainer · Musician",skills:["Guitar","Singing","Gemology"],world:"Forgotten Hollow",home:"Gothic house with a studio",start:"Almost nothing",
+  story:["Your parent brought home treasure. You brought home a guitar. You move to the darkest town you can find, start a gothic rock band and make jewellery from crystals to pay the bills. Every song is about an ex. Every ex knows it. When one of them turns up at a gig, the whole crowd watches what happens next."],
+  why:"Bean gets music. Dani and Bean get crafting with crystals. Gothic house for Dani, Emmy and Kimmy.",chat:"Best song title?",
+  goals:["Top of the Musician branch","Write and license 5 songs about past heirs","Make crystal jewellery for every family member","Play a gig where an ex is in the crowd"],
+  bonus:"Start a band club with other sims",dare:"Smash a guitar on stage (sell it the next day)",
+  twist:"A song you wrote about an ex goes viral. They want royalties. Or a date."},
+ {n:18,e:"🕶️",c:"#1f4e5f",title:"Double Life",tag:"Perfect parent. Perfect spy. Perfect liar.",kids:2,
+  traits:["Evil","Outgoing","Neat"],asp:"Public Enemy",career:"Secret Agent · Villain",skills:["Charisma","Mischief","Logic"],world:"Willow Creek",home:"Perfect suburban house with a hidden room",start:"Your choice",
+  story:["A rock star's kid learns to hide from cameras. You learn it too well. Now you're a villain secret agent with the perfect cover: a nice house in Willow Creek, a sweet partner and two kids. Bake sales by day, crimes by night. Your family can't ever find out. The problem: your partner has secrets too."],
+  why:"Emmy and Kimmy get crime and villains. Bean gets a double life. This gen needs 2 kids for the perfect cover.",chat:"Did your family ever find out?",
+  goals:["Top of the Secret Agent career, Villain branch","Marry and have 2 kids who never find out","Build a hidden room behind a bookcase","Win a neighbourhood award for being the nicest family"],
+  bonus:"Get the Evil trait into the next heir",dare:"Steal one thing from every neighbour",
+  twist:"Your partner is also a secret agent, on the other side."},
+ {n:19,e:"🧥",c:"#b4519f",title:"Thrift to Riches",tag:"Two outfits. One dream. Zero money.",
+  traits:["Creative","Materialistic","Ambitious"],asp:"Fabulously Wealthy",career:"Own thrift boutique",skills:["Knitting","Charisma","Logic"],world:"Henford-on-Bagley",home:"Tiny flat above the shop",start:"Nothing but the clothes you wear",
+  story:["When your parent's secret life fell apart, so did the family money. You leave with nothing but two outfits and a lot of style. In Henford-on-Bagley you open a tiny thrift shop and knit what you can't find. People start dressing like you. Then paying like you. By the end you're rich, famous for your style, and dating someone who still thinks you shop at the charity shop."],
+  why:"Kimmy and Bean get rags to riches. Dani and Kimmy get fashion. Money limits stay optional for Emmy.",chat:"Best outfit you made?",
+  goals:["Start with no money and no house","Open a boutique and sell your own outfits","Reach §100,000","Style every living family member for one big family photo"],
+  bonus:"Knit something for every past heir",dare:"No money cheats until §20,000",
+  twist:"Your rich partner's family thinks you're a gold digger. Prove them wrong, or prove them right."},
+ {n:20,e:"🏡",c:"#a8325e",title:"Back to the Beginning",tag:"The romantic's story finally gets its ending.",
+  traits:["Family-Oriented","Good","Cheerful"],asp:"Successful Lineage",career:"Doctor",skills:["Baking","Logic","Charisma"],world:"Gen 1's world",home:"Family home + the old bakery",start:"Whatever's left",
+  story:["Nineteen generations of bakers, detectives, werewolves, ranchers, reapers, artists, makers, stars, fairies, witches, sirens, landlords, chefs, explorers, rock stars, spies and shop owners, and it all comes down to you. You find Gen 1's recipe in a dusty box, flour still on the page. So you go home. You become a doctor, because someone in this family should fix hearts instead of breaking them. On weekends you reopen the bakery. And when you find your person, you don't chase the next spark. You stay. The hopeless romantic's story finally gets its happy ending."],
+  why:"Bean and Emmy get growing old together and a dynasty. Everyone gets the full circle.",chat:"Final question: which generation was everyone's favourite?",
+  goals:["Top of the Doctor career","Reopen the bakery and sell the family recipe","A reunion with every living generation","A portrait of every heir, 1 to 20, in one hallway","Marry once. Grow old together"],
+  bonus:"Bake the family recipe for your wedding",dare:"Every living heir in one photo",
+  twist:"A long-lost relative claims the recipe is theirs. Win a bake-off to keep it."}
+];
+const PCOLORS={bean:"#d9468f",dani:"#138a7e",emmy:"#7a4fd0",kimmy:"#d9661b"};
+const FALLBACK=["#1c64bf","#b7791f","#2f855a","#b3261e"];
+const EMOJIS=["❤️","😂","😱","🔥"];
+
+/* ---------- basics ---------- */
+const $=s=>document.querySelector(s);
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="text")e.textContent=v;else if(x==="style")e.style.cssText=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(v!=null&&v!==false)e.setAttribute(x,v===true?"":v);}k.forEach(c=>c!=null&&c!==false&&e.append(c));return e;};
+const ls={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+const qs=new URLSearchParams(location.search);
+const NATIVE=!!(window.google&&google.script&&google.script.run);   // the page Google serves (needs a private window if she has 2+ Google accounts)
+const WEB=!NATIVE&&!!window.TG_WEB;                                   // the page outside Google: talks to the same Google app with fetch, no Google sign-in
+const GAS=NATIVE||WEB;                                                // either way the Google app is the server (else: the PC server)
+if(WEB) window.addEventListener("hashchange",()=>{ const m=/[#&]g=([A-Za-z0-9_-]{20,120})/.exec(location.hash); if(m&&m[1]!==ls.get("tg-g")) location.reload(); });
+const GID=(()=>{ const m=/[#&]g=([A-Za-z0-9_-]{20,120})/.exec(location.hash); if(m){ ls.set("tg-g",m[1]); return m[1]; } return ls.get("tg-g")||""; })();
+const BOOT=window.TG_BOOT||{};
+const INVITE=BOOT.invite||qs.get("invite")||"", NEXT=GAS?"":(qs.get("next")||"");
+const goHome=()=>{ if(!GAS) history.replaceState(null,"","/"); };
+ls.del("tg-code");
+let ME="";
+const key=n=>String(n||"").toLowerCase().trim();
+const G=n=>GENS.find(g=>g.n===n);
+function pcolor(name){const k=key(name);if(PCOLORS[k])return PCOLORS[k];let s=0;for(const c of k)s+=c.charCodeAt(0);return FALLBACK[s%FALLBACK.length];}
+function avatar(name,size){return h("span",{class:"av",style:`--pc:${pcolor(name)};${size?`--s:${size}px`:""}`,title:name,text:(name||"?")[0].toUpperCase()});}
+function ago(t){if(!t)return"";const s=Math.max(1,Math.round((Date.now()-t)/1000));if(s<60)return"just now";const m=Math.round(s/60);if(m<60)return m+"m ago";const hh=Math.round(m/60);if(hh<24)return hh+"h ago";const d=Math.round(hh/24);return d+"d ago";}
+function toast(m,bad){const t=$("#toast");$("#toastTx").textContent=m;$("#toastIc").textContent=bad?"!":"✓";t.classList.toggle("bad",!!bad);t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400);}
+function confetti(){const c=h("div",{class:"confetti"});const cols=["#71cf3f","#3a9ae8","#f2b51d","#d9468f","#7a4fd0","#d9661b"];for(let i=0;i<70;i++){c.append(h("i",{style:`left:${Math.random()*100}%;background:${cols[i%cols.length]};animation-delay:${Math.random()*.6}s;transform:rotate(${Math.random()*360}deg)`}));}document.body.append(c);setTimeout(()=>c.remove(),3400);}
+const uid=()=>{const a=new Uint8Array(8);crypto.getRandomValues(a);return Date.now().toString(36)+[...a].map(b=>(b%36).toString(36)).join("");};
+
+/* goals tracked per gen = rules + gen goals */
+function trackGoals(g){const r=[{t:`Max the skills: ${g.skills.join(", ")}`,rule:true},{t:`Finish the aspiration: ${g.asp}`,rule:true}];return r.concat(g.goals.map(t=>({t})));}
+/* ---------- game sync: auto-ticks ---------- */
+const norm=s=>String(s||"").toLowerCase().replace(/[^a-z]/g,"");
+const SKILL_ALIAS={cooking:"homestylecooking"};
+const AGE={BABY:"Baby",INFANT:"Infant",TODDLER:"Toddler",CHILD:"Child",TEEN:"Teen",YOUNGADULT:"Young adult",ADULT:"Adult",ELDER:"Elder"};
+const OCC={MERMAID:"🧜 Mermaid",WITCH:"🔮 Spellcaster",WEREWOLF:"🐺 Werewolf",FAIRY:"✨ Fairy",VAMPIRE:"🦇 Vampire",ALIEN:"👽 Alien",PLANTSIM:"🌱 Plant sim",ROBOT:"🤖 Robot"};
+const MOD_VERSION=4;
+function syncList(name){ return LIVE.sync[key(name)]||[]; }
+function syncLatest(name){ return syncList(name)[0]||null; }      // newest file of any household: is the connector working?
+function matchName(x,heir){ const parts=String(heir||"").trim().toLowerCase().split(/\s+/); if(!parts[0]) return false;
+  if(String(x.first||"").toLowerCase()!==parts[0]) return false; const last=parts.slice(1).join(" "); return !last||String(x.last||"").toLowerCase()===last; }
+function legacyIds(p){ const ids=new Set(),names=[]; if(p&&p.gens) Object.values(p.gens).forEach(s=>{ if(s&&s.heirSimId) ids.add(String(s.heirSimId)); if(s&&s.heir) names.push(s.heir); }); return {ids,names}; }
+// Her legacy household: the file that holds one of her heirs (by game ID, else by name). Other saves are never used.
+function syncOf(name){
+  const L=syncList(name).filter(r=>r.data&&r.data.sims&&r.data.sims.length); if(!L.length) return null;
+  const {ids,names}=legacyIds(prog(name));
+  return L.find(r=>r.data.sims.some(x=>x.inHousehold&&ids.has(String(x.id))))
+      || L.find(r=>r.data.sims.some(x=>x.inHousehold&&names.some(nm=>matchName(x,nm)))) || null;
+}
+function heirSim(snap,state){
+  if(!snap||!snap.sims) return null; state=state||{};
+  if(state.heirSimId){ const x=snap.sims.find(y=>String(y.id)===String(state.heirSimId)); if(x) return x; }
+  const flagged=snap.sims.find(x=>x.heir&&x.inHousehold); if(flagged) return flagged;
+  return snap.sims.find(x=>x.inHousehold&&matchName(x,state.heir))||null;
+}
+// Sims to tap: before the legacy starts = grown-ups in the newest game file; at "finish" = the heir's children.
+function gamePicks(state){
+  const YOUNG=["BABY","INFANT","TODDLER"];
+  if(!state){ const r=syncList(ME).find(r=>r.data&&r.data.sims&&r.data.sims.length); if(!r) return [];
+    return r.data.sims.filter(x=>x.inHousehold&&!x.dead&&!YOUNG.includes(x.age)&&x.age!=="CHILD"); }
+  const sy=syncOf(ME); if(!sy) return []; const heir=heirSim(sy.data,state); if(!heir) return [];
+  const byId={}; sy.data.sims.forEach(x=>byId[String(x.id)]=x);
+  return (heir.children||[]).map(id=>byId[String(id)]).filter(x=>x&&!x.dead);
+}
+async function download(kind){
+  try{
+    const d=await api(kind,{}); const bin=Uint8Array.from(atob(d.b64),c=>c.charCodeAt(0));
+    const url=URL.createObjectURL(new Blob([bin],{type:d.type||"application/octet-stream"}));
+    const a=h("a",{href:url,download:d.name,style:"display:none"}); document.body.append(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},5000);
+    toast("Downloaded "+d.name);
+  }catch(e){ toast(e.code==="sync_not_ready"?"The host hasn't switched game sync on yet.":"The download didn't work. Try again.",true); }
+}
+function connectPanel(){
+  if(!LIVE.syncOn) return null;
+  const latest=syncLatest(ME), leg=syncOf(ME), mine=LIVE.mine||{}, env=mine.env||{};
+  const contact=Math.max(mine.at||0, latest?latest.at:0);
+  const btn=(t,kind,ghost)=>h("button",{class:"btn "+(ghost?"ghost sm":"go"),type:"button",style:"align-self:flex-start",onclick:()=>download(kind)},t);
+  const trouble=()=>h("details",{},h("summary",{class:"small"},"Trouble?"),
+    h("p",{class:"muted small",text:"If the app still says nothing after you played and saved, get the PC helper. It sends your game file from Windows instead of from inside the game. Open it once. Windows may say “Windows protected your PC”: tap More info → Run anyway."}),
+    btn("Get the PC helper","helper",true));
+  const panel=(title,sub,bad,...kids)=>h("div",{class:"panel"},h("div",{class:"ph",style:bad?"background:linear-gradient(180deg,#ee6a55,#c53a28)":""},h("h2",{},title),sub?h("span",{},sub):null),h("div",{class:"pb"},...kids));
+  const modsOn="In The Sims 4: Game Options › Other › tick “Enable Custom Content and Mods” and “Script Mods Allowed”, then restart the game.";
+  if(!contact) return panel("🎮 Connect your game","2 minutes · on your PC",false,
+    h("p",{},"Then skills, careers, kids and money tick themselves, and the girls see your real family."),
+    btn("⬇  Download the installer","installer"),
+    h("p",{class:"muted small"},"Open it on the PC where you play. If Windows says “Windows protected your PC”: More info → Run anyway."),
+    MODS_ON(),
+    h("details",{},h("summary",{class:"small"},"I'd rather put the file in Mods myself"),btn("Download only the game file","modfile",true)),trouble());
+  const m=(latest&&latest.m)||{}, helper=m.via!=="game"&&mine.via!=="game";
+  const copies=env.copies||[];
+  let msg=null,bad=false,again=false,help=false;
+  if(copies.length>1){ msg=`You have ${copies.length} copies of the game file in Mods: ${copies.join(", ")}. The game only uses one. Download the installer again and open it: it removes the extra copies. Then restart the game.`; bad=again=true; }
+  else if(helper&&m.found===false){ msg="The PC helper can't find The Sims 4 on that PC. Start the game once, close it, then open the helper again."; bad=true; help=true; }
+  else if(helper&&(m.modsOff||m.scriptOff)){ msg="The Sims switched mods off. It does that after game updates. "+modsOn; bad=true; }
+  else if((env.mod&&env.mod<MOD_VERSION)||(leg&&(leg.data.modVersion||1)<MOD_VERSION)){ msg="There's a new version of your game file. Download it and replace the old one in Mods."; again=true; }
+  else if(Date.now()-contact>3*86400e3){ msg=`Nothing from your game for ${ago(contact).replace(" ago","")}. If you played since then: after a game update, The Sims switches mods off. `+modsOn; bad=again=help=true; }
+  else if(!leg&&gamePicks(null).length&&(!MINE||!legacyIds(MINE).names.length)){ msg="Connected! Pick your founder below."; }
+  else if(!leg&&latest&&latest.data&&latest.data.sims&&latest.data.sims.length){ msg="Connected, but this save doesn't have your heir. Load your legacy save and save once."; }
+  else if(!leg){ msg="Connected! Load your legacy save and save once."; }
+  if(!msg) return h("div",{class:"panel"},h("div",{class:"pb row",style:"justify-content:space-between"},h("span",{style:"font-weight:900;color:var(--green2)",text:`🎮 Game connected · synced ${ago(leg.at)}`})));
+  return panel(bad?"🎮 Your game sync needs you":"🎮 Game sync",null,bad,h("p",{text:msg}),again?btn("⬇  Download the installer again","installer"):null,bad?MODS_ON():null,help?trouble():null);
+}
+function autoGoals(name,n){
+  const out=new Set(); const sy=syncOf(name); const p=prog(name); const s=genState(p,n); const g=G(n);
+  if(!sy||!s||!g) return out;
+  const sim=heirSim(sy.data,s); if(!sim) return out;
+  const sk=sim.skills||[];
+  const maxed=g.skills.every(nm=>{const want=SKILL_ALIAS[norm(nm)]||norm(nm);const hit=sk.find(x=>norm(x.n).endsWith(want));return hit&&hit.max&&hit.lv>=hit.max;});
+  if(g.skills.length&&maxed) out.add(0);
+  if(sim.asp&&sim.asp.done&&norm(sim.asp.n).includes(norm(g.asp))) out.add(1);
+  g.goals.forEach((t,i)=>{
+    let m=/^Top of the (.+?) (career|branch)/i.exec(t);
+    if(m){const want=norm(m[1]);if((sim.careers||[]).some(c=>c.top&&norm(c.n+" "+c.track).includes(want)))out.add(i+2);return;}
+    m=/^Have (\d) kids/i.exec(t);
+    if(m){if((sim.children||[]).length>=+m[1])out.add(i+2);return;}
+    m=/^Reach §([\d,]+)/.exec(t);
+    if(m){const f=sy.data.household&&sy.data.household.funds;if(f!=null&&f>=+m[1].replace(/,/g,""))out.add(i+2);return;}
+    if(/^Become a mermaid$/i.test(t)&&(sim.occults||[]).includes("MERMAID"))out.add(i+2);
+  });
+  return out;
+}
+function doneSet(name,n){ const s=genState(prog(name),n); const set=new Set((s&&s.ticks)||[]); autoGoals(name,n).forEach(i=>set.add(i)); return set; }
+function autoEmit(){
+  if(!ME||!MINE||MINE.complete) return;
+  const n=Math.min(MINE.current||1,20), s=st(n), g=G(n), goals=trackGoals(g);
+  s.autoSeen=s.autoSeen||[]; let changed=false;
+  const sy=syncOf(ME);
+  if(sy&&!s.heirSimId){ const sim=heirSim(sy.data,s); if(sim){ s.heirSimId=String(sim.id); if(!s.heir) s.heir=`${sim.first||""} ${sim.last||""}`.trim(); changed=true; } }
+  autoGoals(ME,n).forEach(i=>{ if(!s.autoSeen.includes(i)){ s.autoSeen.push(i); changed=true; emit("tick",n,`ticked “${goals[i].t}” 🎮 from the game`);} });
+  if(changed) saveMine();
+}
+function gamePanel(name,title){
+  const sy=syncOf(name); if(!sy||!sy.data||!sy.data.sims) return null;
+  const snap=sy.data; const p=prog(name); const heir=p?heirSim(snap,genState(p,Math.min(p.current||1,20))||{}):null;
+  const byId={}; snap.sims.forEach(x=>byId[x.id]=x);
+  const row=(x,tag)=>h("div",{class:"t"},h("span",{class:"em",style:"--gc:"+(x.dead?"#8a96a3":x===heir?"#3f9b1f":"#3a9ae8")},x.dead?"🪦":x===heir?"⭐":"👤"),
+    h("div",{},h("b",{text:`${x.first||""} ${x.last||""}`.trim()}),h("span",{text:[tag,AGE[x.age]||x.age,...(x.occults||[]).map(o=>OCC[o]||o)].filter(Boolean).join(" · ")})));
+  const rows=[];
+  snap.sims.filter(x=>x.inHousehold).sort((a,b)=>(b===heir)-(a===heir)).forEach(x=>rows.push(row(x,x===heir?"Heir":"Household")));
+  if(heir){ (heir.parents||[]).map(id=>byId[id]).filter(x=>x&&!x.inHousehold).forEach(x=>rows.push(row(x,"Parent")));
+    if(heir.spouse&&byId[heir.spouse]&&!byId[heir.spouse].inHousehold) rows.push(row(byId[heir.spouse],"Partner"));
+    (heir.children||[]).map(id=>byId[id]).filter(x=>x&&!x.inHousehold).forEach(x=>rows.push(row(x,"Child"))); }
+  const extra=snap.sims.filter(x=>!x.inHousehold&&x.dead&&!rows.some(r=>r.dataset&&r.dataset.id===x.id)).slice(0,8);
+  if(!heir) extra.forEach(x=>rows.push(row(x,"Family")));
+  const money=snap.household&&snap.household.funds!=null?` · §${Number(snap.household.funds).toLocaleString()}`:"";
+  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||"🎮 In the game"),h("span",{text:`Synced ${ago(sy.at)}${money}`})),
+    h("div",{class:"tree"},...rows));
+}
+const kidsText=g=>g.noKidRule?"3+ (see goals)":g.kids?`${g.kids} needed`:"1 or 2";
+
+/* ---------- server ---------- */
+async function webCall(path,body){
+  if(!GID) throw new Error("nolink");
+  const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),30000);
+  try{
+    const r=await fetch(`https://script.google.com/macros/s/${GID}/exec`,{method:"POST",credentials:"omit",redirect:"follow",signal:ctl.signal,
+      headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({api:path,b:body==null?null:body,t:ls.get("tg-token")||""})});
+    return await r.json();
+  }catch(e){ throw new Error("offline"); }
+  finally{ clearTimeout(tm); }
+}
+function gasCall(path,body){ if(WEB) return webCall(path,body); return new Promise((ok,bad)=>{ const tm=setTimeout(()=>bad(new Error("offline")),25000);
+  google.script.run.withSuccessHandler(r=>{clearTimeout(tm);ok(r);}).withFailureHandler(()=>{clearTimeout(tm);bad(new Error("offline"));}).api(path,body==null?null:body,ls.get("tg-token")||""); }); }
+async function api(path,body){
+  if(GAS){
+    let r; try{ r=await gasCall(path,body); }catch(e){ if(e.message!=="nolink") $("#net").hidden=false; throw e; }
+    $("#net").hidden=true;
+    if(r&&typeof r.t==="string"){ if(r.t) ls.set("tg-token",r.t); else ls.del("tg-token"); }
+    if(!r||r.s!==200){ const err=new Error(String(r&&r.s||500)); err.code=r&&r.d&&r.d.error; if(r&&r.s===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
+    return r.d;
+  }
+  const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),9000);
+  let r;
+  try{
+    r=await fetch(`/api/${path}`,body?{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-TG":"1"},body:JSON.stringify(body),signal:ctl.signal}:{credentials:"same-origin",signal:ctl.signal});
+  }catch(e){ $("#net").hidden=false; clearTimeout(tm); throw new Error("offline"); }
+  clearTimeout(tm); $("#net").hidden=true;
+  let data=null; try{data=await r.json();}catch(e){}
+  if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
+  return data;
+}
+function loggedOut(){ ME=""; MINE=null; $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login","You were logged out. Log in again."); }
+let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
+let MINE=null;            // my progress (source of truth on this device)
+let outbox=[];            // events waiting to send
+const saveOutbox=()=>ls.set("tg-outbox-"+key(ME),JSON.stringify(outbox));
+const loadOutbox=()=>{try{outbox=JSON.parse(ls.get("tg-outbox-"+key(ME))||"[]");}catch(e){outbox=[];}};
+
+async function pull(){
+  const have={}; Object.entries(LIVE.sync||{}).forEach(([k,a])=>a.forEach(r=>{ have[k+"|"+r.hh]=r.at; }));
+  Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ have["fam|"+k]=f.at; });
+  const d=await api("live",{have});
+  const prog={};(d.progress||[]).forEach(w=>{if(w&&w.name&&w.data){const p=Object.assign({},w.data,{name:w.name});prog[key(w.name)]=p;}});
+  const sync={};
+  if(Array.isArray(d.syncKeys)){   // Google host: only changed game files come back; keep the rest from last time
+    const keep=new Set(d.syncKeys.map(String));
+    Object.entries(LIVE.sync||{}).forEach(([k,a])=>a.forEach(r=>{ if(keep.has(k+"|"+r.hh)) (sync[k]=sync[k]||[]).push(r); }));
+  }
+  (d.sync||[]).forEach(x=>{if(x&&x.name&&x.rec){const k=key(x.name),a=(sync[k]=sync[k]||[]);const i=a.findIndex(r=>r.hh===x.rec.hh);const r={at:x.rec.at||0,hh:x.rec.hh,m:x.rec.m||{},data:x.rec.data||{}};if(i>=0)a[i]=r;else a.push(r);}});
+  Object.values(sync).forEach(a=>a.sort((p,q)=>q.at-p.at));
+  const fam={};
+  if(Array.isArray(d.famKeys)){ const keep=new Set(d.famKeys.map(String)); Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ if(keep.has("fam|"+k)) fam[k]=f; }); }
+  (d.fams||[]).forEach(f=>{ if(f&&f.name) fam[key(f.name)]={at:f.at||0,sims:f.sims||{}}; });
+  LIVE={roster:d.roster||[],progress:prog,feed:d.feed||[],reactions:d.reactions||[],sync,fam,syncOn:!!d.syncOn,mine:d.mine||null};
+  if(ME && !MINE){ MINE=prog[key(ME)]||null; }
+  // keep my local copy if it's newer
+  if(ME && MINE){ const srv=prog[key(ME)]; if(srv && (srv.updatedAt||0)>(MINE.updatedAt||0)) MINE=srv; LIVE.progress[key(ME)]=MINE; }
+  autoEmit();
+  // add unsent events locally so they show
+  outbox.forEach(e=>{ if(!LIVE.feed.find(f=>f.id===e.id)) LIVE.feed.push(e); });
+}
+let saveTimer=null,saving=false,dirty=false;
+function saveMine(){ if(!MINE) return; MINE.updatedAt=Date.now(); ls.set("tg-mine-"+key(ME),JSON.stringify(MINE)); LIVE.progress[key(ME)]=MINE; dirty=true; clearTimeout(saveTimer); saveTimer=setTimeout(flush,500); }
+async function flush(){
+  if(saving) return; saving=true;
+  try{
+    if(dirty&&MINE){ await api("progress",MINE); dirty=false; }
+    while(outbox.length){ const e=outbox[0]; try{ await api("event",{id:e.id,type:e.type,gen:e.gen,text:e.text}); }catch(x){ if(x.message==="400"){ /* drop bad event */ } else throw x; } outbox.shift(); saveOutbox(); }
+  }catch(e){ /* retry later */ }
+  saving=false;
+}
+setInterval(()=>{ if(dirty||outbox.length) flush(); },8000);
+function emit(type,gen,text){ const e={id:uid(),at:Date.now(),who:ME,type,gen,text}; outbox.push(e); saveOutbox(); LIVE.feed.push(e); flush(); return e; }
+
+/* ---------- tabs / routing ---------- */
+let TAB=ls.get("tg-tab")||"hood";
+function show(tab){ TAB=tab; ls.set("tg-tab",tab);
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===tab)));
+  ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=v!==tab);
+  if(tab==="hood"){ ls.set("tg-seen-"+key(ME),String(Date.now())); }
+  render(); window.scrollTo(0,0);
+}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>show(b.dataset.tab)));
+
+/* ---------- render ---------- */
+function players(){
+  const names=new Map();
+  LIVE.roster.forEach(n=>names.set(key(n),n));
+  Object.values(LIVE.progress).forEach(p=>names.set(key(p.name),p.name));
+  if(ME) names.set(key(ME),ME);
+  return [...names.values()].filter(n=>!["test","tyest","zed"].includes(key(n))).sort((a,b)=>a.localeCompare(b));
+}
+function prog(name){ return LIVE.progress[key(name)]||null; }
+function genState(p,n){ return (p&&p.gens&&p.gens[n])||null; }
+function ticksDone(p,n){ return p?doneSet(p.name,n).size:0; }
+function render(){
+  if(!ME) return;
+  if(TAB==="hood") renderHood();
+  if(TAB==="me") renderMe();
+  if(TAB==="plan") renderPlan();
+  const seen=+(ls.get("tg-seen-"+key(ME))||0);
+  const n=LIVE.feed.filter(f=>f.at>seen && key(f.who)!==key(ME)).length;
+  const b=$("#newBadge"); b.hidden=!n||TAB==="hood"; b.textContent=n>9?"9+":String(n);
+}
+
+function renderHood(){
+  const ps=players();
+  const active=ps.filter(n=>prog(n));
+  $("#hoodSub").textContent = active.length? `${active.length} of ${ps.length} playing. Tap a girl to see her family.` : "Nobody has started yet. Go to My legacy to start Gen 1.";
+  // track
+  const rail=$("#rail"); rail.innerHTML="";
+  for(const g of GENS){
+    const here=ps.filter(n=>{const p=prog(n);return p&&Math.min(p.current||1,20)===g.n;});
+    rail.append(h("button",{class:"stop",type:"button",onclick:()=>openGen(g.n),title:g.title},
+      h("span",{class:"dot",style:`--gc:${g.c}`,text:g.e}),h("span",{class:"num",text:String(g.n)}),
+      h("span",{class:"who"},...here.map(n=>avatar(n)))));
+  }
+  // players
+  const box=$("#players"); box.innerHTML="";
+  ps.forEach(n=>{
+    const p=prog(n); const cur=p?Math.min(p.current||1,20):null; const g=cur?G(cur):null;
+    const st=g?genState(p,cur):null; const total=g?trackGoals(g).length:0; const d=g?ticksDone(p,cur):0;
+    const finished=p?Object.values(p.gens||{}).filter(x=>x.done).length:0;
+    const card=h("button",{class:"pcard",type:"button",style:`--pc:${pcolor(n)}`,onclick:()=>openPlayer(n)},
+      h("div",{class:"head"},avatar(n),h("div",{},h("b",{text:n+(key(n)===key(ME)?" (you)":"")}),h("small",{text:p?`${finished} of 20 gens done · ${ago(p.updatedAt)}`:"Hasn't started yet"}))),
+      g?h("div",{class:"gen",style:`--gc:${g.c}`},h("span",{class:"em",text:g.e}),h("div",{},h("b",{text:`Gen ${g.n} · ${g.title}`}),h("span",{text:(st&&st.heir)?`Heir: ${st.heir}`:"Heir not named yet"}))):null,
+      g?h("div",{class:"bar"},h("i",{style:`width:${total?d/total*100:0}%`})):null,
+      g?h("div",{class:"muted small",style:"margin:-4px 14px 10px;font-weight:800",text:`${d} of ${total} goals`}):null,
+      p&&p.status&&p.status.text?h("div",{class:"bubble",text:p.status.text}):null,
+      syncLatest(n)?h("div",{class:"muted small",style:"margin:-6px 14px 12px;font-weight:800",text:`🎮 Game synced ${ago((syncOf(n)||syncLatest(n)).at)}`}):null);
+    box.append(card);
+  });
+  // feed
+  const feed=$("#feed"); feed.innerHTML="";
+  const items=[...LIVE.feed].sort((a,b)=>b.at-a.at).slice(0,120);
+  $("#feedCount").textContent=items.length?`${items.length} updates`:"";
+  if(!items.length) feed.append(h("div",{class:"empty",text:"No updates yet. Tick a goal or share a moment and it shows up here."}));
+  const grouped=[];
+  for(const e of items){const last=grouped[grouped.length-1];
+    if(e.type==="tick"&&last&&last.type==="tick"&&key(last.who)===key(e.who)&&last.gen===e.gen&&Math.abs(last.at-e.at)<3*3600e3){(last.more||(last.more=[last.text])).push(e.text);continue;}
+    grouped.push(Object.assign({},e));}
+  grouped.forEach(e=>feed.append(feedItem(e)));
+}
+function reactionsFor(id){ const m={}; LIVE.reactions.filter(r=>r.id===id).forEach(r=>{const s=m[r.emoji]||(m[r.emoji]=new Set());const k=key(r.who);s.has(k)?s.delete(k):s.add(k);}); return m; }
+function feedItem(e){
+  const g=G(e.gen); const big=e.type==="finish"||e.type==="start";
+  const r=reactionsFor(e.id);
+  const reacts=h("div",{class:"reacts"},...EMOJIS.map(em=>{const s=r[em]||new Set();const on=s.has(key(ME));
+    return h("button",{class:"react"+(on?" on":""),type:"button","aria-pressed":String(on),title:[...s].join(", "),onclick:async()=>{const rr={id:e.id,who:ME,emoji:em,at:Date.now()};LIVE.reactions.push(rr);render();try{await api("react",{id:e.id,emoji:em});}catch(x){toast("Couldn't send the reaction",true);}}},em,s.size?String(s.size):null);}));
+  const line=h("div",{class:"line"},h("b",{text:e.who})," ",e.type==="post"?"shared:":e.more?`ticked ${e.more.length} goals ✅`:e.text);
+  return h("div",{class:"item"+(big?" big":"")},avatar(e.who),
+    h("div",{class:"body"},line,e.type==="post"?h("div",{class:"quote",text:e.text}):null,
+      e.more?h("div",{class:"quote",text:e.more.map(t=>"✓ "+t.replace(/^ticked “|”$/g,"")).reverse().join("\n")}):null,
+      h("div",{class:"meta"},g?h("span",{class:"gchip",style:`--gc:${g.c}`,text:`${g.e} Gen ${g.n}`}):null,h("span",{text:ago(e.at)})),
+      reacts));
+}
+
+/* ---------- my legacy ---------- */
+function startLegacy(founder,simId){
+  MINE={name:ME,current:1,gens:{1:{ticks:[],heir:founder||"",heirSimId:simId?String(simId):undefined,startedAt:Date.now()}},status:{text:"",at:0},createdAt:Date.now()};
+  saveMine(); emit("start",1,`started the legacy${founder?` with ${founder}`:""}! 🧁`); confetti(); render();
+}
+function cur(){ return MINE?Math.min(MINE.current||1,20):1; }
+function st(n){ MINE.gens=MINE.gens||{}; return MINE.gens[n]||(MINE.gens[n]={ticks:[],heir:"",startedAt:Date.now()}); }
+function renderMe(){
+  const v=$("#v-me"); v.innerHTML="";
+  if(!MINE){
+    const inp=h("input",{type:"text",id:"founder",maxlength:"40",placeholder:"e.g. Rosie Crumb"});
+    v.append(h("div",{},h("h1",{class:"h1",text:`Welcome, ${ME}!`}),h("p",{class:"sub",text:"Here's how this works. It takes 10 seconds."})),
+      h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},"How it works")),
+        h("div",{class:"pb"},
+          h("div",{class:"row"},h("span",{class:"av",style:"--pc:#3a9ae8",text:"1"}),h("span",{text:"Play in your own game. Tick goals here when you do them."})),
+          h("div",{class:"row"},h("span",{class:"av",style:"--pc:#3f9b1f",text:"2"}),h("span",{text:"The girls see your progress live in the Neighborhood. React to theirs."})),
+          h("div",{class:"row"},h("span",{class:"av",style:"--pc:#f2b51d",text:"3"}),h("span",{text:"Finish a generation to rate it and meet your next heir."})))),
+      connectPanel(),
+      h("div",{class:"panel"},h("div",{class:"ph",style:`background:${G(1).c}`},h("h2",{},"🧁 Start Gen 1")),
+        h("div",{class:"pb"},
+          gamePicks(null).length?h("div",{class:"field"},h("span",{class:"label",text:"Pick your founder from your game"}),h("div",{class:"chips"},...gamePicks(null).map(x=>h("button",{class:"btn ghost sm",type:"button",onclick:()=>startLegacy(`${x.first||""} ${x.last||""}`.trim(),x.id)},`${x.first||""} ${x.last||""}`.trim())))):null,
+          h("div",{class:"field"},h("label",{class:"label",for:"founder"},gamePicks(null).length?"…or type a name":"Name your founder"),inp),
+          h("button",{class:"btn go",type:"button",onclick:()=>startLegacy(inp.value.trim())},"Start my legacy"))));
+    return;
+  }
+  if(MINE.complete){
+    v.append(h("div",{},h("h1",{class:"h1",text:"Legacy complete 👑"}),h("p",{class:"sub",text:"Twenty generations. You did it."})));
+    { const fp=familyPanel(ME,"🌳 Your family tree"); if(fp) v.append(fp); }
+    v.append(treePanel(MINE,true)); return;
+  }
+  const n=cur(), g=G(n), s=st(n), goals=trackGoals(g);
+  const auto=autoGoals(ME,n); const done=doneSet(ME,n).size;
+  const heir=h("input",{type:"text",id:"heir",maxlength:"40",value:s.heir||"",placeholder:n===1?"Name your founder":"Name your heir"});
+  heir.addEventListener("change",()=>{const old=s.heir;s.heir=heir.value.trim();saveMine();if(s.heir&&s.heir!==old)emit("heir",n,`named the Gen ${n} heir: ${s.heir}`);render();});
+  v.append(h("div",{class:"hero",style:`--gc:${g.c}`},
+    h("div",{class:"band"},h("div",{class:"em",text:g.e}),h("div",{class:"n",text:`Your generation ${n} of 20`}),h("h2",{text:g.title}),h("p",{class:"tag",text:g.tag}),
+      h("div",{class:"traits"},...g.traits.map(t=>h("span",{text:t})),g.kids?h("span",{text:`👶 ${g.kids} kids this gen`}):null),
+      h("div",{class:"heir"},h("label",{for:"heir"},n===1?"Founder":"Heir"),heir))));
+  { const cp=connectPanel(); if(cp) v.append(cp); }
+  // status
+  const ta=h("textarea",{id:"status",maxlength:"300",placeholder:"What's happening now?"});
+  v.append(h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},"Your status"),h("span",{text:MINE.status&&MINE.status.text?`Now: “${MINE.status.text.slice(0,40)}${MINE.status.text.length>40?"…":""}”`:"Shows on your card"})),
+    h("div",{class:"pb"},h("div",{class:"compose"},ta,h("button",{class:"btn go",type:"button",onclick:()=>{const t=ta.value.trim();if(!t)return;MINE.status={text:t,at:Date.now()};saveMine();emit("post",n,t);ta.value="";toast("Shared with the girls");render();}},"Share")))));
+  // goals
+  const cnt=h("span",{text:`${done} of ${goals.length}`});
+  const list=h("div",{class:"panel"},h("div",{class:"ph",style:`background:${g.c}`},h("h2",{},"Goals"),cnt),
+    h("div",{class:"bar",style:"margin:12px 16px 4px"},h("i",{style:`width:${done/goals.length*100}%`})),
+    ...goals.map((gl,i)=>{const id=`t${n}_${i}`;const cb=h("input",{type:"checkbox",id});cb.checked=(s.ticks||[]).includes(i)||auto.has(i);if(auto.has(i))cb.disabled=true;
+      cb.addEventListener("change",()=>{s.ticks=s.ticks||[];if(cb.checked){if(!s.ticks.includes(i))s.ticks.push(i);emit("tick",n,`ticked “${gl.t}”`);}else{s.ticks=s.ticks.filter(x=>x!==i);}saveMine();
+        if(doneSet(ME,n).size===goals.length){toast("All goals done! Finish the generation when you're ready.");confetti();}render();});
+      return h("label",{class:"goal",for:id},cb,h("span",{},gl.rule?h("span",{class:"rule",text:"Every gen"}):null,gl.t,auto.has(i)?h("span",{class:"rule",style:"color:var(--green2)",text:" 🎮 from the game"}):null));}));
+  v.append(list);
+  // life facts
+  v.append(h("div",{class:"panel list"},h("div",{class:"ph"},h("h2",{},"The life")),
+    ...[["Aspiration",g.asp],["Career",g.career],["Skills",g.skills.join(", ")],["Kids",kidsText(g)],["World",g.world],["Home",g.home],["Start with",g.start]].map(([k,val])=>h("div",{class:"rowi"},h("span",{text:k}),h("span",{text:val})))));
+  // extras
+  const extras=[];
+  if(g.dare){const cb=h("input",{type:"checkbox",id:"dare"});cb.checked=!!s.dare;cb.addEventListener("change",()=>{s.dare=cb.checked;saveMine();if(cb.checked)emit("dare",n,`did the dare: ${g.dare} 😈`);});
+    extras.push(h("label",{class:"toggle",for:"dare"},cb,h("span",{},h("b",{text:"Dare: "}),g.dare)));}
+  if(g.bonus){const cb=h("input",{type:"checkbox",id:"bonus"});cb.checked=!!s.bonus;cb.addEventListener("change",()=>{s.bonus=cb.checked;saveMine();if(cb.checked)emit("bonus",n,`did the bonus: ${g.bonus} ⭐`);});
+    extras.push(h("label",{class:"toggle",for:"bonus"},cb,h("span",{},h("b",{text:"Bonus: "}),g.bonus)));}
+  if(extras.length) v.append(h("div",{class:"panel"},...extras.map((x,i)=>i?h("div",{style:"border-top:1px solid var(--hair)"},x):x)));
+  if(g.twist){
+    const open=!!s.twist;
+    v.append(h("button",{class:"twist",type:"button",style:`--gc:${g.c}`,onclick:()=>{if(!s.twist){s.twist=true;saveMine();emit("twist",n,"opened the twist card 👀");}render();}},
+      h("b",{text:open?"Twist card":"Twist card · tap to reveal (everyone will know 👀)"}),open?h("span",{text:g.twist}):null));
+  }
+  v.append(h("div",{class:"panel"},h("div",{class:"pb"},h("p",{class:"muted small",text:g.why}),h("p",{text:g.story[0].length>420?g.story[0].slice(0,300).replace(/\s\S*$/,"")+"…":g.story[0]}))));
+  v.append(h("div",{class:"row"},h("button",{class:"btn go",type:"button",onclick:()=>finishSheet(n)},`Finish generation ${n}`),
+    h("button",{class:"btn ghost",type:"button",onclick:()=>openGen(n)},"See how the girls did")));
+  const fp=familyPanel(ME,"🌳 Your family tree"); if(fp) v.append(fp);
+  const gp=gamePanel(ME,"🎮 Your household now"); if(gp) v.append(gp);
+  v.append(treePanel(MINE,false));
+}
+/* ---------- family tree from the game data (every sim her game ever sent) ---------- */
+const uni=(a,b)=>{const o=(a||[]).map(String);(b||[]).forEach(x=>{x=String(x);if(x&&!o.includes(x))o.push(x);});return o;};
+function famOf(name){
+  const S={}, f=LIVE.fam&&LIVE.fam[key(name)];
+  if(f&&f.sims) Object.entries(f.sims).forEach(([id,r])=>{ S[id]={id,first:r.f||"",last:r.l||"",age:r.a||"",dead:!!r.d,occ:r.o||[],parents:uni([],r.p),children:uni([],r.c),spouse:r.s||null,partners:uni([],r.ps)}; });
+  syncList(name).slice().reverse().forEach(rec=>((rec.data&&rec.data.sims)||[]).forEach(x=>{ const id=String(x.id); if(!id) return;
+    const o=S[id]||(S[id]={id,parents:[],children:[],partners:[]});
+    Object.assign(o,{first:x.first||"",last:x.last||"",age:x.age||o.age,dead:!!x.dead||!!o.dead,occ:x.occults||o.occ||[]});
+    o.parents=uni(o.parents,x.parents); o.children=uni(o.children,x.children);
+    if(x.spouse){ o.spouse=String(x.spouse); o.partners=uni(o.partners,[o.spouse]); } }));
+  Object.values(S).forEach(o=>{ o.children.forEach(c=>{ if(S[c]) S[c].parents=uni(S[c].parents,[o.id]); }); o.parents.forEach(q=>{ if(S[q]) S[q].children=uni(S[q].children,[o.id]); }); });
+  return S;
+}
+function heirLine(name,S){
+  const p=prog(name), cur=Math.min((p&&p.current)||1,20), line={};
+  for(let n=1;n<=cur;n++){ const s=genState(p,n); if(!s) continue;
+    if(s.heirSimId&&S[String(s.heirSimId)]) line[n]=String(s.heirSimId);
+    else if(s.heir){ const m=Object.values(S).filter(x=>matchName(x,s.heir)); if(m.length===1) line[n]=m[0].id; } }
+  if(!line[cur]){ const sy=syncOf(name), hs=sy&&heirSim(sy.data,genState(p,cur)||{}); if(hs&&S[String(hs.id)]) line[cur]=String(hs.id); }
+  for(let n=cur-1;n>=1;n--){ if(line[n]||!line[n+1]) continue;          // a gap: the heir before is a parent of the next heir
+    const kid=S[line[n+1]], ps=kid.parents.map(i=>S[i]).filter(Boolean); if(!ps.length) continue;
+    const before=line[n-1]&&S[line[n-1]]; const pick=(before&&ps.find(x=>before.children.includes(x.id)))||ps.find(x=>x.last&&x.last===kid.last)||ps[0]; line[n]=pick.id; }
+  return {line,cur};
+}
+const AGE_ORDER=["ELDER","ADULT","YOUNGADULT","TEEN","CHILD","TODDLER","INFANT","BABY"];
+function simName(x){ return `${x.first||""} ${x.last||""}`.trim()||"(no name)"; }
+function simCard(x,cls,extra){ return h("span",{class:"sim "+(cls||"")+(x.dead?" dead":"")},h("b",{text:(x.dead?"🪦 ":"")+simName(x)}),
+  h("span",{text:[extra,AGE[x.age]||"",...(x.occ||[]).map(o=>OCC[o]||o)].filter(Boolean).join(" · ")||" "})); }
+function familyPanel(name,title){
+  const S=famOf(name); if(!Object.keys(S).length) return null;
+  const p=prog(name), {line,cur}=heirLine(name,S);
+  if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),
+    h("div",{class:"pb"},h("p",{class:"muted",text:"The tree starts when the game knows your founder. Pick your founder from your game on the My legacy tab, then save the game once."})));
+  const gens=[];
+  const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
+  const root=S[line[first]], roots=(root&&root.parents||[]).map(i=>S[i]).filter(Boolean);
+  for(let n=1;n<=cur;n++){
+    const g=G(n), id=line[n], x=id&&S[id], s=genState(p,n)||{};
+    const badge=h("button",{class:"badge",type:"button",style:`--gc:${g.c}`,title:`Gen ${n}: ${g.title}`,onclick:()=>openGen(n)},g.e,h("small",{text:"Gen "+n}));
+    if(!x){ gens.push(h("div",{class:"gen"},badge,h("div",{class:"gap",text:(s.heir?s.heir+" · ":"")+(n===cur?"Not in the game data yet. Save the game once.":"Not in the game data.")}))); continue; }
+    let partners=uni(x.partners,[]); x.children.forEach(c=>{ const k=S[c]; if(k) partners=uni(partners,k.parents.filter(q=>q!==x.id)); }); partners=partners.filter(q=>q!==x.id);
+    const pcards=partners.map(i=>S[i]).filter(Boolean).map(y=>simCard(y,"",y.id===x.spouse?"Partner":(y.dead?"Late partner":"Ex / other parent")));
+    const next=line[n+1];
+    const kids=x.children.map(i=>S[i]).filter(Boolean).sort((a,b)=>AGE_ORDER.indexOf(a.age)-AGE_ORDER.indexOf(b.age));
+    const need=g.kids||0;
+    gens.push(h("div",{class:"gen"},badge,
+      h("div",{class:"couple"},simCard(x,"heir",n===1?"⭐ Founder":"⭐ Heir"),pcards.length?h("span",{class:"heart",text:"❤"}):null,...pcards),
+      h("div",{class:"kids"},h("em",{text:kids.length?`Kids (${kids.length}${need?` of ${need}`:""})`:need?`Kids: 0 of ${need}`:"No kids yet"}),
+        need&&kids.length>=need?h("span",{class:"ok",text:"✓"}):null,
+        ...kids.map(k=>h("span",{class:"kid"+(k.id===next?" next":""),title:AGE[k.age]||""},(k.id===next?"⭐ ":"")+(k.dead?"🪦 ":"")+(k.first||simName(k)))))));
+  }
+  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:`${Object.keys(S).length} sims · from the game`})),
+    h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens));
+}
+function treePanel(p,all){
+  const rows=GENS.filter(g=>all||g.n<=(p.current||1)).map(g=>{const s=genState(p,g.n);
+    return h("button",{class:"t",type:"button",style:`--gc:${g.c};text-align:left;width:100%`,onclick:()=>openGen(g.n)},h("span",{class:"em",text:g.e}),
+      h("div",{},h("b",{text:(s&&s.heir)||`Gen ${g.n} heir`}),h("span",{text:`Gen ${g.n} · ${g.title}`})),
+      s&&s.done?h("span",{class:"stars",text:"★".repeat(s.rating||0)||"✓"}):h("span",{class:"pill play",text:"Playing"}));});
+  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},`${p.name}'s generations`)),h("div",{class:"tree"},...rows));
+}
+
+/* finish */
+function finishSheet(n){
+  const g=G(n), s=st(n); let rating=s.rating||0;
+  const stars=h("div",{class:"starsel"},...[1,2,3,4,5].map(i=>h("button",{type:"button","aria-label":i+" stars","aria-pressed":String(i<=rating),onclick:()=>{rating=i;[...stars.children].forEach((b,j)=>b.setAttribute("aria-pressed",String(j<i)));}},"★")));
+  const chat=h("textarea",{id:"fChat"}); chat.value=s.chat||"";
+  const liked=h("textarea",{id:"fLiked"}); liked.value=s.liked||"";
+  const dis=h("textarea",{id:"fDis"}); dis.value=s.disliked||"";
+  const next=G(n+1);
+  const nextHeir=h("input",{type:"text",id:"fHeir",maxlength:"40",placeholder:"Name them now or later"}); let nextId=null;
+  nextHeir.addEventListener("input",()=>{nextId=null;});
+  const kids=gamePicks(s);
+  const kidBtns=kids.length?h("div",{class:"chips"},...kids.map(x=>{const nm=`${x.first||""} ${x.last||""}`.trim();return h("button",{class:"btn ghost sm",type:"button",onclick:e=>{nextHeir.value=nm;nextId=String(x.id);[...e.currentTarget.parentNode.children].forEach(b=>b.classList.remove("go"));e.currentTarget.classList.add("go");}},nm);})):null;
+  openSheet(g,
+    h("div",{class:"sbody"},
+      h("div",{class:"panel"},h("div",{class:"pb"},h("span",{class:"label",text:"Your rating"}),stars)),
+      h("div",{class:"panel"},h("div",{class:"pb"},
+        h("div",{class:"field"},h("label",{class:"label",for:"fChat"},g.chat),chat),
+        h("div",{class:"field"},h("label",{class:"label",for:"fLiked"},"What you liked"),liked),
+        h("div",{class:"field"},h("label",{class:"label",for:"fDis"},"What you didn't like"),dis),
+        next?h("div",{class:"field"},h("label",{class:"label",for:"fHeir"},`Your Gen ${next.n} heir (${next.e} ${next.title})`),kidBtns,nextHeir):null)),
+      h("p",{class:"muted small",text:`${doneSet(ME,n).size} of ${trackGoals(g).length} goals done. You can finish anyway.`}),
+      h("button",{class:"btn go",type:"button",onclick:()=>{
+        Object.assign(s,{done:true,rating,chat:chat.value.trim(),liked:liked.value.trim(),disliked:dis.value.trim(),finishedAt:Date.now()});
+        if(next){MINE.current=n+1;const ns=st(n+1);if(nextHeir.value.trim())ns.heir=nextHeir.value.trim();if(nextId)ns.heirSimId=nextId;}else{MINE.complete=true;}
+        saveMine();
+        emit("finish",n,`finished Gen ${n} · ${g.title} ${"★".repeat(rating)}${s.chat?` — “${s.chat.slice(0,120)}”`:""}`);
+        closeSheet();confetti();toast(next?`On to Gen ${next.n}: ${next.title} ${next.e}`:"Legacy complete! 👑");show("me");}},next?`Finish and start Gen ${n+1}`:"Finish the legacy 👑")),
+    `Finish generation ${n}`);
+}
+
+/* ---------- plan ---------- */
+function renderPlan(){
+  const box=$("#tiles"); box.innerHTML="";
+  const ps=players();
+  for(const g of GENS){
+    const here=ps.filter(n=>{const p=prog(n);return p&&Math.min(p.current||1,20)===g.n&&!p.complete;});
+    box.append(h("button",{class:"tile",type:"button",style:`--gc:${g.c}`,onclick:()=>openGen(g.n)},
+      h("span",{class:"em",text:g.e}),g.kids?h("span",{class:"kids",text:`👶 ${g.kids} kids`}):null,h("span",{class:"n",text:"Gen "+g.n}),h("span",{class:"t",text:g.title}),h("span",{class:"tag",text:g.tag}),
+      h("span",{class:"here"},...here.map(n=>avatar(n)))));
+  }
+}
+
+/* ---------- sheets ---------- */
+function openSheet(g,content,label,nav){
+  const scrim=$("#scrim"); scrim.innerHTML=""; scrim.hidden=false; document.body.style.overflow="hidden";
+  const prev=nav&&G(g.n-1), next=nav&&G(g.n+1);
+  const sh=h("div",{class:"sheet",role:"dialog","aria-modal":"true","aria-label":label||g.title,style:`--gc:${g.c}`},
+    h("div",{class:"band"},
+      h("div",{class:"bar2"},nav?h("div",{class:"row"},
+          h("button",{class:"circ",type:"button","aria-label":"Previous",style:prev?"":"opacity:.35",onclick:()=>prev&&openGen(prev.n)},"‹"),
+          h("button",{class:"circ",type:"button","aria-label":"Next",style:next?"":"opacity:.35",onclick:()=>next&&openGen(next.n)},"›")):h("span",{}),
+        h("button",{class:"circ",type:"button","aria-label":"Close",onclick:closeSheet},"✕")),
+      h("div",{class:"em",text:g.e}),h("div",{class:"n",text:label||("Generation "+g.n)}),h("h2",{text:g.title}),h("p",{class:"tag",text:g.tag}),
+      h("div",{class:"traits"},...g.traits.map(t=>h("span",{text:t})))),
+    content);
+  scrim.append(sh); sh.scrollTop=0;
+}
+function closeSheet(){ const s=$("#scrim"); s.hidden=true; s.innerHTML=""; document.body.style.overflow=""; }
+$("#scrim").addEventListener("click",e=>{if(e.target.id==="scrim")closeSheet();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#scrim").hidden)closeSheet();});
+
+function openGen(n){
+  const g=G(n); const ps=players();
+  const girls=ps.map(name=>{const p=prog(name);const s=genState(p,n);const c=p?Math.min(p.current||1,20):0;
+    const total=trackGoals(g).length;
+    let pill=h("span",{class:"pill",text:"Not there yet"});
+    if(s&&s.done) pill=h("span",{class:"pill done",text:"Done "+("★".repeat(s.rating||0))});
+    else if(p&&c===n) pill=h("span",{class:"pill play",text:`Playing · ${ticksDone(p,n)}/${total}`});
+    return h("div",{class:"girl"},avatar(name),h("div",{class:"info"},
+      h("div",{class:"row"},h("b",{text:name}),pill),
+      s&&s.heir?h("span",{},"Heir: ",h("b",{text:s.heir})):null,
+      s&&s.done&&s.chat?h("span",{text:`“${s.chat}”`}):null,
+      s&&s.done&&s.liked?h("span",{class:"muted",text:"Liked: "+s.liked}):null,
+      s&&s.done&&s.disliked?h("span",{class:"muted",text:"Didn't like: "+s.disliked}):null));});
+  const mineHere=MINE&&genState(MINE,n)&&genState(MINE,n).twist;
+  const content=h("div",{class:"sbody"},
+    h("p",{class:"muted small",text:"♥ "+g.why}),
+    h("div",{class:"panel"},h("div",{class:"pb"},...g.story.map(p=>h("p",{text:p})))),
+    h("div",{},h("div",{class:"ghead"},h("span",{},"The girls on this gen")),h("div",{class:"panel"},...girls)),
+    h("div",{},h("div",{class:"ghead"},h("span",{},"The life")),h("div",{class:"panel list"},
+      ...[["Aspiration",g.asp],["Career",g.career],["Skills",g.skills.join(", ")],["Kids",kidsText(g)],["World",g.world],["Home",g.home],["Start with",g.start]].map(([k,val])=>h("div",{class:"rowi"},h("span",{text:k}),h("span",{text:val}))))),
+    h("div",{},h("div",{class:"ghead"},h("span",{},"Goals")),h("div",{class:"panel"},...trackGoals(g).map(x=>h("div",{class:"goal",style:"cursor:default"},h("span",{text:"•",style:"color:var(--gc);font-weight:900"}),h("span",{},x.rule?h("span",{class:"rule",text:"Every gen"}):null,x.t))))),
+    h("div",{class:"panel"},h("div",{class:"pb"},
+      g.bonus?h("div",{},h("span",{class:"label",text:"Bonus "}),h("div",{text:g.bonus})):null,
+      g.dare?h("div",{},h("span",{class:"label",text:"Dare "}),h("div",{text:g.dare})):null,
+      g.chat?h("div",{},h("span",{class:"label",text:"Chat in the call "}),h("div",{text:g.chat})):null,
+      g.twist?h("div",{},h("span",{class:"label",text:"Twist card "}),h("div",{class:mineHere?"":"muted",text:mineHere?g.twist:"Hidden. Open it from My legacy when you start this gen."})):null)));
+  openSheet(g,content,null,true);
+}
+function openPlayer(name){
+  const p=prog(name);
+  if(!p){toast(`${name} hasn't started yet`);return;}
+  const g=G(Math.min(p.current||1,20));
+  const finished=Object.entries(p.gens||{}).filter(([,s])=>s.done);
+  const avg=finished.length?(finished.reduce((a,[,s])=>a+(s.rating||0),0)/finished.length).toFixed(1):"–";
+  const ticks=Object.values(p.gens||{}).reduce((a,s)=>a+(s.ticks||[]).length,0);
+  const dares=Object.values(p.gens||{}).filter(s=>s.dare).length;
+  const recent=[...LIVE.feed].filter(e=>key(e.who)===key(name)).sort((a,b)=>b.at-a.at).slice(0,8);
+  openSheet(g,h("div",{class:"sbody"},
+    h("div",{class:"panel list"},
+      h("div",{class:"rowi"},h("span",{text:"Generations done"}),h("span",{text:`${finished.length} of 20`})),
+      h("div",{class:"rowi"},h("span",{text:"Goals ticked"}),h("span",{text:String(ticks)})),
+      h("div",{class:"rowi"},h("span",{text:"Dares done"}),h("span",{text:String(dares)})),
+      h("div",{class:"rowi"},h("span",{text:"Average rating"}),h("span",{text:avg}))),
+    p.status&&p.status.text?h("div",{class:"panel"},h("div",{class:"pb"},h("span",{class:"label",text:"Status · "+ago(p.status.at)}),h("p",{text:p.status.text}))):null,
+    familyPanel(name),
+    gamePanel(name,`🎮 ${name}'s household now`),
+    treePanel(p,false),
+    recent.length?h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},"Latest")),h("div",{class:"feed"},...recent.map(feedItem))):null),
+    `${name} · Gen ${g.n}`);
+}
+
+/* ---------- identity ---------- */
+const ERR={wrong_name_or_pin:"That name and PIN don't match.",locked:"Too many tries. This name is locked for 15 minutes.",busy:"Too many wrong PINs in the group just now. Try again in 15 minutes.",pin_format:"Use 4 to 12 digits.",
+  invite_used_or_wrong:"This personal link was already used or is wrong. Log in with your name and PIN, or ask the host.",wrong_code:"That party code is wrong.",
+  name_taken:"That name is already in the group. Log in instead.",bad_name:"Use at least 2 letters.",full:"The group is full.",slow_down:"Slow down a little and try again."};
+function errText(e){ if(e.message==="nolink") return "Open the app with the link from the group's Discord (this page needs the full link once)."; if(e.message==="offline") return GAS?"Can't reach the app. Check your internet and try again.":"Can't reach the host's server. Is it on?"; if(e.message==="429"&&!e.code) return "Too many tries from your connection. Try again in an hour."; return ERR[e.code]||"Something went wrong. Try again."; }
+function pinInput(id,ph){ return h("input",{type:"password",id,inputmode:"numeric",autocomplete:id==="pin"?"current-password":"new-password",pattern:"[0-9]*",maxlength:"12",placeholder:ph||"4–12 digits"}); }
+async function pickScreen(msg){
+  ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); $("#tabs").hidden=true; $("#meBtn").hidden=true;
+  $("#gate").hidden=false; const p=$("#authPanel"); p.innerHTML=""; $("#gateMsg").textContent=msg||"";
+  let names=[]; try{ names=(await api("names")).names||[]; }catch(e){ $("#gateMsg").textContent=errText(e); }
+  const sel=h("select",{id:"pickName",class:"pick"},h("option",{value:""},"Choose your name…"),...names.map(n=>h("option",{value:n},n)));
+  const go=h("button",{class:"btn go big",type:"button",id:"pickBtn",disabled:true},"Choose your name first");
+  sel.onchange=()=>{ const v=sel.value; go.disabled=!v; go.textContent=v?`Yes, I'm ${v} →`:"Choose your name first"; };
+  go.onclick=async()=>{ const v=sel.value; if(!v) return; go.disabled=true;
+    try{ const prev=ls.get("tg-prev")||""; const d=await api("pick",{name:v,prev}); ls.del("tg-prev"); enter(d.name,true,!!prev&&key(prev)!==key(d.name)); }
+    catch(e){ go.disabled=false; $("#gateMsg").textContent=errText(e); } };
+  p.append(h("div",{class:"ph"},h("h2",{},"Who are you?"),h("span",{},"One time on this PC")),
+    h("div",{class:"pb",style:"display:grid;gap:14px"},
+      h("div",{class:"must"},"⚠️ Pick ",h("b",{},"YOUR OWN")," name. Your game file is made for this name. The wrong name puts your game into someone else's legacy."),
+      sel,go,
+      h("button",{class:"btn ghost sm",type:"button",style:"justify-self:center",onclick:()=>authScreen("join")},"Not in the list? Join with a party code")));
+}
+function authScreen(kind,msg){
+  if(GAS&&kind!=="join"){ pickScreen(msg); return; }
+  ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true);
+  $("#gate").hidden=false; const p=$("#authPanel"); p.innerHTML=""; $("#gateMsg").textContent=msg||"";
+  const fail=e=>{$("#gateMsg").textContent=errText(e);};
+  if(kind==="invite"){
+    p.append(h("div",{class:"ph"},h("h2",{},"Welcome!"),h("span",{},"One-time setup")),
+      h("div",{class:"pb"},h("p",{},"Hi ",h("b",{id:"invName",text:"…"}),"! Choose a PIN. You'll use your name and this PIN to log in on any device."),
+        h("div",{class:"field"},h("label",{class:"label",for:"newpin"},"Your PIN"),pinInput("newpin")),
+        h("div",{class:"field"},h("label",{class:"label",for:"newpin2"},"Type it again"),pinInput("newpin2")),
+        h("button",{class:"btn go",type:"button",id:"claimBtn"},"Save my PIN")));
+    api("invite?t="+encodeURIComponent(INVITE)).then(d=>{$("#invName").textContent=d.name;}).catch(e=>{authScreen("login",errText(e));});
+    $("#claimBtn").onclick=async()=>{const a=$("#newpin").value,b=$("#newpin2").value; if(a!==b){$("#gateMsg").textContent="The two PINs are different.";return;}
+      try{const d=await api("claim",{invite:INVITE,pin:a}); goHome(); enter(d.name,true);}catch(e){fail(e);}};
+    return;
+  }
+  if(kind==="join"){
+    p.append(h("div",{class:"ph"},h("h2",{},"Join the group"),h("span",{},"New players")),
+      h("div",{class:"pb"},
+        h("div",{class:"field"},h("label",{class:"label",for:"jcode"},"Party code from the host"),h("input",{type:"text",id:"jcode",autocomplete:"off",maxlength:"40"})),
+        h("div",{class:"field"},h("label",{class:"label",for:"jname"},"Your name"),h("input",{type:"text",id:"jname",autocomplete:"nickname",maxlength:"24"})),
+        GAS?null:h("div",{class:"field"},h("label",{class:"label",for:"jpin"},"Choose a PIN"),pinInput("jpin")),
+        h("button",{class:"btn go",type:"button",id:"joinBtn"},"Join"),
+        h("button",{class:"btn ghost sm",type:"button",onclick:()=>authScreen("login")},GAS?"Back to the name list":"I already have a PIN")));
+    $("#joinBtn").onclick=async()=>{try{const d=await api("join",{code:$("#jcode").value.trim(),name:$("#jname").value.trim(),pin:GAS?"":$("#jpin").value}); if(GAS){enter(d.name,true);}else{location.href="/questions";}}catch(e){fail(e);}};
+    return;
+  }
+  const nm=h("input",{type:"text",id:"lname",autocomplete:"username",maxlength:"24",value:ls.get("tg-last")||""});
+  p.append(h("div",{class:"ph"},h("h2",{},"Who's playing?"),h("span",{},"Log in")),
+    h("div",{class:"pb"},
+      h("div",{class:"field"},h("label",{class:"label",for:"lname"},"Your name"),nm),
+      h("div",{class:"field"},h("label",{class:"label",for:"pin"},"Your PIN"),pinInput("pin","Your PIN")),
+      h("button",{class:"btn go",type:"button",id:"loginBtn"},"Log in"),
+      h("p",{class:"muted small",text:"First time? Use the personal link the host sent you. New to the group? "},h("button",{class:"btn ghost sm",type:"button",onclick:()=>authScreen("join")},"Join with a party code"))));
+  const go=async()=>{try{const d=await api("login",{name:nm.value.trim(),pin:$("#pin").value}); if(NEXT==="questions"){location.href="/questions";return;} goHome(); enter(d.name);}catch(e){fail(e);}};
+  $("#loginBtn").onclick=go; $("#pin").addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+}
+/* ---------- first time: connect the game (shown right after the PIN, and until her game says hello) ---------- */
+let SETUP=false;
+const APPLINK=WEB?(location.origin+location.pathname+"#g="+GID):BOOT.app||(location.origin+"/");
+const ON_PC=/Windows/i.test(navigator.userAgent)&&!/Phone|Mobile|Android/i.test(navigator.userAgent);
+const MODS_ON=()=>h("div",{class:"must"},"⚠️ Mods must be ON in The Sims 4. The installer switches them on for you. If the game still says mods are off: ",
+  h("b",{},"Game Options › Other"),", tick ",h("b",{},"“Enable Custom Content and Mods”")," and ",h("b",{},"“Script Mods Allowed”"),", then restart the game.");
+function setupScreen(switched){
+  SETUP=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); $("#tabs").hidden=true; closeSheet();
+  $("#gate").hidden=false; const p=$("#authPanel"); p.innerHTML=""; $("#gateMsg").textContent="";
+  const pc=[
+    h("ol",{class:"bigsteps"},
+      h("li",{},h("div",{},h("button",{class:"btn go big",type:"button",id:"instBtn",onclick:()=>download("installer")},"⬇  Download the installer"))),
+      h("li",{},h("div",{},"Open it. If Windows says “Windows protected your PC”: tap ",h("b",{},"More info")," → ",h("b",{},"Run anyway"),".")),
+      h("li",{},h("div",{},"When it says ",h("b",{},"ALL SET"),", start The Sims 4."))),
+    MODS_ON(),
+    h("p",{id:"setupStatus",class:"setstat"})];
+  const phone=[
+    h("p",{style:"font-weight:800"},"Do this on the PC where you play The Sims 4:"),
+    h("ol",{class:"bigsteps"},h("li",{},h("div",{},"Open the app link on that PC:",h("br"),h("b",{style:"word-break:break-all",text:APPLINK}))),
+      h("li",{},h("div",{},"Log in with your name and PIN.")),h("li",{},h("div",{},"Tap the big green button."))),
+    h("button",{class:"btn",type:"button",onclick:()=>{try{navigator.clipboard.writeText(APPLINK).then(()=>toast("Link copied"),()=>toast("Copy it from the box above",true));}catch(e){toast("Copy it from the box above",true);}}},"Copy the link"),
+    h("p",{id:"setupStatus",class:"setstat"})];
+  p.append(h("div",{class:"ph"},h("h2",{},switched?`You're ${ME} now: get your own game file`:"Last step: connect your game"),h("span",{},"1 minute")),
+    h("div",{class:"pb",style:"display:grid;gap:14px"},
+      switched?h("div",{class:"must"},`Download the installer again and open it. It swaps the game file in Mods for ${ME}'s.`):null,
+      ...(ON_PC?pc:phone),
+      h("button",{class:"btn ghost sm",type:"button",style:"justify-self:center",onclick:()=>{ls.set("tg-skip-"+key(ME),"1");leaveSetup();}},"Skip for now")));
+  setupStatus();
+}
+function leaveSetup(){ SETUP=false; $("#gate").hidden=true; $("#tabs").hidden=false; show(MINE?TAB:"me"); }
+function gameSeen(){ return !!((LIVE.mine&&LIVE.mine.at)||syncLatest(ME)); }
+function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gameSeen();
+  el.textContent=on?"✓ Your game is connected! You're all set.":"⏳ Waiting for your game… (this turns green when The Sims 4 is running)";
+  el.classList.toggle("ok",on);
+  if(on&&!$("#setupGo")) el.after(h("button",{class:"btn go big",type:"button",id:"setupGo",onclick:leaveSetup},"Go to my legacy →")); }
+async function enter(name,fresh,switched){
+  ME=name; ls.set("tg-last",ME); loadOutbox(); MINE=null;
+  $("#gate").hidden=true; $("#gateMsg").textContent=""; $("#tabs").hidden=false;
+  const mb=$("#meBtn"); mb.hidden=false; mb.innerHTML=""; mb.append(avatar(ME));
+  mb.onclick=()=>openAccount();
+  try{ await pull(); }catch(e){}
+  if(!MINE){ try{ MINE=JSON.parse(ls.get("tg-mine-"+key(ME))||"null"); if(MINE){MINE.name=ME;LIVE.progress[key(ME)]=MINE;dirty=true;flush();} }catch(e){} }
+  if(LIVE.syncOn&&(switched||(!gameSeen()&&(fresh||!ls.get("tg-skip-"+key(ME)))))){ setupScreen(switched); return; }
+  show(MINE?TAB:"me");
+}
+function openAccount(){
+  openSheet({n:0,e:"👤",c:pcolor(ME),title:ME,tag:"Your account",traits:[]},
+    h("div",{class:"sbody"},
+      h("div",{class:"panel"},h("div",{class:"pb"},
+        h("p",{},GAS?`You're ${ME} on this PC.`:"You're logged in on this device for 30 days."),
+        GAS?h("button",{class:"btn",type:"button",onclick:async()=>{ls.set("tg-prev",ME);try{await api("logout",{});}catch(e){} ls.del("tg-token"); closeSheet(); ME=""; MINE=null; pickScreen(`Not ${ls.get("tg-prev")}? Pick your own name.`);}},`Not ${ME}? Switch name`):null,
+        GAS?null:h("a",{class:"btn ghost",href:"/questions",style:"text-decoration:none;text-align:center"},"Edit my question answers"),
+        GAS?null:h("button",{class:"btn",type:"button",onclick:async()=>{try{await api("logout",{});}catch(e){} ls.del("tg-mine-"+key(ME)); location.replace("/");}},"Log out")))),
+    "Account");
+}
+$("#postBtn").addEventListener("click",()=>{const t=$("#post").value.trim();if(!t)return;
+  if(!MINE){toast("Start your legacy first (My legacy tab)",true);return;}
+  MINE.status={text:t,at:Date.now()};saveMine();emit("post",cur(),t);$("#post").value="";render();});
+
+/* live refresh */
+setInterval(async()=>{ if(!ME||document.hidden) return; try{ await pull(); if(SETUP) setupStatus(); else if($("#scrim").hidden) render(); }catch(e){} },GAS?20000:15000);
+setInterval(async()=>{ if(!SETUP||!ME||document.hidden) return; try{ await pull(); setupStatus(); }catch(e){} },8000);   // faster while she installs
+document.addEventListener("visibilitychange",async()=>{ if(!document.hidden&&ME){ try{await pull();render();}catch(e){} } });
+
+(async()=>{
+  // Already logged in on this device? Then go straight in, even from an old first-time link or a bookmark of it.
+  try{ const d=await api("whoami"); if(NEXT==="questions"){location.href="/questions";return;} goHome(); enter(d.name); return; }
+  catch(e){ if(e.message==="nolink"){ authScreen("login",errText(e)); return; } if(INVITE&&e.message!=="offline"){ authScreen("invite"); return; } authScreen("login", e.message==="offline"?errText(e):""); }
+})();
+</script>
+</body>
+</html>
