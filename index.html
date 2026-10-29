@@ -1165,5 +1165,7 @@ document.addEventListener("visibilitychange",async()=>{ if(!document.hidden&&ME)
   catch(e){ if(e.message==="nolink"){ authScreen("login",errText(e)); return; } if(INVITE&&e.message!=="offline"){ authScreen("invite"); return; } authScreen("login", e.message==="offline"?errText(e):""); }
 })();
 </script>
+<div id="tgload" style="position:fixed;inset:0;display:grid;place-items:center;z-index:50;pointer-events:none"><div style="text-align:center;font:800 16px Nunito,system-ui,sans-serif;color:#1c64bf"><div style="width:44px;height:44px;margin:0 auto 10px;border:5px solid #cfe6f8;border-top-color:#3f9b1f;border-radius:50%;animation:tgspin .8s linear infinite"></div>Loading your legacy…</div></div><style>@keyframes tgspin{to{transform:rotate(360deg)}}</style>
+<script>(function(){var t=setInterval(function(){var l=document.getElementById("tgload");if(!l){clearInterval(t);return;}var g=document.getElementById("gate"),seen=(g&&!g.hidden&&g.textContent.trim().length>20)||["hood","me","plan"].some(function(v){var e=document.getElementById("v-"+v);return e&&!e.hidden&&e.textContent.trim();});if(seen){l.remove();clearInterval(t);}},150);})();</script>
 </body>
 </html>
