@@ -38,7 +38,7 @@ async function call(action,name){
 }
 const field=(id,label,type,extra)=>h("label",{style:"display:grid;gap:4px"},label,h("input",Object.assign({id,type,style:"font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px"},extra||{})));
 function card(title,...k){const m=$("#main");m.textContent="";m.append(h("section",{class:"card",style:"max-width:440px;margin:30px auto;width:100%"},h("div",{class:"ch"},h("h2",{text:title})),h("div",{class:"cb"},...k)));}
-function loadQR(){return new Promise(ok=>{if(window.QRCode)return ok();const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";s.onload=ok;s.onerror=ok;document.head.append(s);});}
+function loadQR(){return new Promise(ok=>{if(window.QRCode)return ok();const s=document.createElement("script");s.src="qrcode.min.js";   /* our own reviewed copy, same site (no outside script on the login page) */s.onload=ok;s.onerror=ok;document.head.append(s);});}
 async function setupScreen(){
   const r=await call("setupstart");
   if(!r.ok){card("Health login",h("p",{class:"alert",text:r.msg||"Didn't work."}));return;}
