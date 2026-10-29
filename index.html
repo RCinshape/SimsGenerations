@@ -100,6 +100,14 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 .compose textarea{flex:1;min-width:0;border:2px solid var(--hair);background:var(--bg);border-radius:14px;padding:10px 12px;resize:none;height:46px;font-weight:600}
 .compose textarea:focus{outline:none;border-color:var(--blue1);background:#fff;height:84px}
 .feed{display:flex;flex-direction:column}
+.vote{padding:12px 16px;border-top:1px solid var(--hair);display:grid;gap:8px}.vote:first-child{border-top:0}
+.vote .q{font-weight:900}.vote .opts{display:grid;gap:6px}
+.vote .opt{display:flex;align-items:center;gap:8px;text-align:left;font:inherit;font-weight:800;border:2px solid var(--hair);background:var(--surface);border-radius:12px;padding:8px 10px;cursor:pointer;position:relative;overflow:hidden}
+.vote .opt i{position:absolute;inset:0 auto 0 0;background:rgba(113,207,63,.18);pointer-events:none}.vote .opt.me{border-color:var(--green2)}.vote .opt span{position:relative;flex:1}.vote .opt b{position:relative}
+.chaos{display:grid;gap:10px;padding:12px 16px}.chaos select,.chaos input,.votef input,.votef select{font:inherit;padding:10px;border-radius:12px;border:2px solid var(--hair);background:var(--surface);width:100%}
+.votef{display:grid;gap:8px;padding:12px 16px;border-top:1px solid var(--hair)}
+#bookPrint{display:none}
+@media print{body>*:not(#bookPrint){display:none!important}#bookPrint{display:block!important;color:#000;background:#fff;font:12pt Georgia,serif}#bookPrint h1{font-size:28pt;margin:0 0 6pt}#bookPrint h2{font-size:16pt;margin:18pt 0 4pt;page-break-after:avoid}#bookPrint .gen{page-break-inside:avoid;border-top:1px solid #999;padding-top:6pt}#bookPrint .muted{color:#555}}
 .item{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--hair)}
 .item:first-child{border-top:0}
 .item .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
@@ -291,6 +299,8 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
     <div><h1 class="h1">The Neighborhood</h1><p class="sub" id="hoodSub"></p></div>
     <div class="panel"><div class="ph"><h2>Who's where</h2><span>Generation 1 → 20</span></div><div class="pb"><div class="track"><div class="rail" id="rail"></div></div></div></div>
     <div class="players" id="players"></div>
+    <div class="panel"><div class="ph"><h2>🗳️ Votes</h2><span>Decide each other's fate</span></div><div id="votes"></div></div>
+    <div class="panel"><div class="ph"><h2>🎲 Chaos button</h2><span>Only girls who switched it on</span></div><div id="chaos"></div></div>
     <div class="panel">
       <div class="ph"><h2>What's happening</h2><span id="feedCount"></span></div>
       <div class="pb"><div class="compose"><textarea id="post" maxlength="400" placeholder="Share a moment…"></textarea><button class="btn go" id="postBtn" type="button">Share</button></div></div>
@@ -520,7 +530,7 @@ const norm=s=>String(s||"").toLowerCase().replace(/[^a-z]/g,"");
 const SKILL_ALIAS={cooking:"homestylecooking"};
 const AGE={BABY:"Baby",INFANT:"Infant",TODDLER:"Toddler",CHILD:"Child",TEEN:"Teen",YOUNGADULT:"Young adult",ADULT:"Adult",ELDER:"Elder"};
 const OCC={MERMAID:"🧜 Mermaid",WITCH:"🔮 Spellcaster",WEREWOLF:"🐺 Werewolf",FAIRY:"✨ Fairy",VAMPIRE:"🦇 Vampire",ALIEN:"👽 Alien",PLANTSIM:"🌱 Plant sim",ROBOT:"🤖 Robot"};
-const MOD_VERSION=5;
+const MOD_VERSION=6;
 function syncList(name){ return LIVE.sync[key(name)]||[]; }
 function syncLatest(name){ return syncList(name)[0]||null; }      // newest file of any household: is the connector working?
 function matchName(x,heir){ const parts=String(heir||"").trim().toLowerCase().split(/\s+/); if(!parts[0]) return false;
@@ -597,11 +607,23 @@ function autoGoals(name,n){
   g.goals.forEach((t,i)=>{
     let m=/^Top of the (.+?) (career|branch)/i.exec(t);
     if(m){const want=norm(m[1]);if((sim.careers||[]).some(c=>c.top&&norm(c.n+" "+c.track).includes(want)))out.add(i+2);return;}
-    m=/^Have (\d) kids/i.exec(t);
-    if(m){if((sim.children||[]).length>=+m[1])out.add(i+2);return;}
+    const kids=(sim.children||[]).length, byId={}; (sy.data.sims||[]).forEach(x=>byId[String(x.id)]=x); const sp=sim.spouse&&byId[String(sim.spouse)];
+    m=/^Have (\d) kids$/i.exec(t);                       // only the plain goal ("Have 2 kids and teach…" needs her tick)
+    if(m){if(kids>=+m[1])out.add(i+2);return;}
+    m=/^Marry and have (\d) kids$/i.exec(t);
+    if(m){if(sim.spouse&&kids>=+m[1])out.add(i+2);return;}
+    m=/^Marry a(?:n)? (.+?) sim\b/i.exec(t);               // "Marry a Skeptical sim…", "Marry a sim with the X trait" below
+    if(m&&sp&&(sp.traits||[]).some(x=>norm(x).includes(norm(m[1]))))out.add(i+2);
+    m=/^Marry a sim with the (.+?) trait/i.exec(t);
+    if(m&&sp&&(sp.traits||[]).some(x=>norm(x).includes(norm(m[1]))))out.add(i+2);
+    m=/^Top of the (.+?) skill$/i.exec(t);
+    if(m){const w=norm(m[1]);const hit=sk.find(x=>norm(x.n).includes(w));if(hit&&hit.max&&hit.lv>=hit.max)out.add(i+2);return;}
+    if(/^Have a child with a mermaid tail$/i.test(t)&&(sim.children||[]).some(c=>byId[String(c)]&&(byId[String(c)].occults||[]).includes("MERMAID")))out.add(i+2);
+    if(/^Marry once\. Grow old together$/i.test(t)&&sim.age==="ELDER"&&sp&&sp.age==="ELDER"&&!sp.dead)out.add(i+2);
     m=/^Reach §([\d,]+)/.exec(t);
     if(m){const f=sy.data.household&&sy.data.household.funds;if(f!=null&&f>=+m[1].replace(/,/g,""))out.add(i+2);return;}
     if(/^Become a mermaid$/i.test(t)&&(sim.occults||[]).includes("MERMAID"))out.add(i+2);
+
   });
   return out;
 }
@@ -687,7 +709,7 @@ async function pull(){
   const fam={};
   if(Array.isArray(d.famKeys)){ const keep=new Set(d.famKeys.map(String)); Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ if(keep.has("fam|"+k)) fam[k]=f; }); }
   (d.fams||[]).forEach(f=>{ if(f&&f.name) fam[key(f.name)]={at:f.at||0,sims:f.sims||{}}; });
-  LIVE={roster:d.roster||[],progress:prog,feed:d.feed||[],reactions:d.reactions||[],sync,fam,syncOn:!!d.syncOn,mine:d.mine||null};
+  LIVE={roster:d.roster||[],progress:prog,feed:d.feed||[],reactions:d.reactions||[],sync,fam,syncOn:!!d.syncOn,mine:d.mine||null,votes:d.votes||[],chaos:d.chaos||null};
   if(ME && !MINE){ MINE=prog[key(ME)]||null; }
   // keep my local copy if it's newer
   if(ME && MINE){ const srv=prog[key(ME)]; if(srv && (srv.updatedAt||0)>(MINE.updatedAt||0)) MINE=srv; LIVE.progress[key(ME)]=MINE; }
@@ -776,6 +798,61 @@ function renderHood(){
     if(e.type==="tick"&&last&&last.type==="tick"&&key(last.who)===key(e.who)&&last.gen===e.gen&&Math.abs(last.at-e.at)<3*3600e3){(last.more||(last.more=[last.text])).push(e.text);continue;}
     grouped.push(Object.assign({},e));}
   grouped.forEach(e=>feed.append(feedItem(e)));
+  renderVotes(); renderChaos();
+}
+/* ---------- votes ---------- */
+function renderVotes(){
+  const box=$("#votes"); if(!box) return; box.innerHTML="";
+  const vs=[...(LIVE.votes||[])].sort((a,b)=>(a.closed-b.closed)||(b.ends-a.ends));
+  vs.forEach(v=>{ const total=v.counts.reduce((a,b)=>a+b,0)||1; const mine=v.voters.map(key).includes(key(ME));
+    box.append(h("div",{class:"vote"},h("div",{class:"q",text:`${v.q}`}),h("div",{class:"muted small",text:`For ${v.target}'s heir · asked by ${v.by} · `+(v.closed?`closed: ${v.win} won`:`${v.voters.length} voted · ends ${new Date(v.ends).toLocaleString([], {weekday:"short",hour:"2-digit",minute:"2-digit"})}`)}),
+      h("div",{class:"opts"},...v.opts.map((o,i)=>h("button",{class:"opt"+(v.closed&&o===v.win?" me":""),type:"button",disabled:v.closed,onclick:async()=>{try{await api("vote",{id:v.id,i});toast(mine?"Vote changed":"Voted 🗳️");await pull();render();}catch(e){toast("Couldn't vote",true);}}},
+        h("i",{style:`width:${v.counts[i]/total*100}%`}),h("span",{text:o}),h("b",{text:String(v.counts[i])})))))); });
+  if(!vs.length) box.append(h("div",{class:"empty",text:"No votes yet. Start one below."}));
+  const who=h("select",{},...players().map(n=>h("option",{value:n},n)));
+  const q=h("input",{maxlength:"140",placeholder:"Question, e.g. Who should Emmy's heir marry?"});
+  const os=[1,2,3,4].map(i=>h("input",{maxlength:"60",placeholder:`Option ${i}`+(i>2?" (optional)":"")}));
+  box.append(h("div",{class:"votef"},h("b",{text:"Start a vote"}),h("label",{class:"muted small",text:"About whose heir?"}),who,q,...os,
+    h("button",{class:"btn go",type:"button",onclick:async()=>{const opts=os.map(x=>x.value.trim()).filter(Boolean);if(q.value.trim().length<3||opts.length<2){toast("Write a question and at least 2 options",true);return;}
+      try{await api("vote_new",{target:who.value,q:q.value.trim(),opts});toast("Vote started 🗳️");await pull();render();}catch(e){toast(e.code==="too_many_votes"?"You have 3 open votes already":"Couldn't start the vote",true);}}},"Start the vote (24 hours)")));
+}
+/* ---------- chaos ---------- */
+function renderChaos(){
+  const box=$("#chaos"); if(!box) return; box.innerHTML=""; const c=LIVE.chaos; if(!c){box.append(h("div",{class:"empty",text:"Not available yet."}));return;}
+  const targets=c.open.filter(n=>key(n)!==key(ME));
+  const sw=h("label",{class:"toggle"},h("input",{type:"checkbox",checked:c.mine?true:null,onchange:async ev=>{try{await api("chaos_opt",{on:ev.target.checked});toast(ev.target.checked?"Chaos ON. Brave.":"Chaos OFF");await pull();render();}catch(e){toast("Didn't work",true);}}}),
+    h("span",{},h("b",{text:"Let the girls send chaos into MY game. "}),"Small, safe things only: a money envelope, council tax, a dare, a compliment, gossip. They show up as a Sims message in your game (needs the newest game file)."));
+  box.append(h("div",{class:"chaos"},sw));
+  if(!targets.length){box.append(h("div",{class:"empty",text:"Nobody else has switched the chaos button on yet."}));return;}
+  const who=h("select",{},...targets.map(n=>h("option",{value:n},n))), act=h("select",{},...c.actions.map(a=>h("option",{value:a.id},a.label)));
+  const note=h("input",{maxlength:"100",placeholder:"Add a note (optional)"});
+  box.append(h("div",{class:"chaos"},h("b",{text:"Send chaos"}),who,act,note,h("button",{class:"btn go",type:"button",onclick:async()=>{
+    try{await api("chaos",{target:who.value,act:act.value,note:note.value.trim()});toast("Sent 🎲 It shows up in her game soon.");note.value="";}
+    catch(e){toast(e.code==="chaos_wait"?"Slow down: one per girl every 2 hours":e.code==="chaos_off"?"She switched chaos off":"Couldn't send",true);}}},"Press the chaos button 🎲")));
+}
+/* ---------- the Legacy Book ---------- */
+function openBook(name){
+  const p=prog(name); if(!p){toast(`${name} hasn't started yet`);return;}
+  const S=famOf(name), {line}=Object.keys(S).length?heirLine(name,S):{line:{}};
+  const posts=[...LIVE.feed].filter(e=>key(e.who)===key(name)&&e.type==="post").sort((a,b)=>a.at-b.at);
+  const el=(t,a,...k)=>h(t,a||{},...k);
+  const book=el("div",{},el("h1",{text:`The ${name} Legacy`}),el("p",{class:"muted",text:`The Twenty-Gen Legacy · ${Object.values(p.gens||{}).filter(s=>s.done).length} of 20 generations finished · printed ${new Date().toLocaleDateString()}`}));
+  GENS.filter(g=>g.n<=Math.min(p.current||1,20)).forEach(g=>{const s=genState(p,g.n)||{}, x=line[g.n]&&S[line[g.n]];
+    const partners=x?uni(x.partners,[]).map(i=>S[i]).filter(Boolean).map(simName):[];
+    const kids=x?x.children.map(i=>S[i]).filter(Boolean).map(k=>(k.first||simName(k))+(k.id===line[g.n+1]?" ⭐":"")):[];
+    const goals=trackGoals(g), done=doneSet(name,g.n);
+    book.append(el("div",{class:"gen"},el("h2",{text:`${g.e} Generation ${g.n}: ${g.title}`}),
+      el("p",{},el("b",{text:"Heir: "}),(x?simName(x):s.heir)||"not named",s.done?` · ${"★".repeat(s.rating||0)}`:" · still playing"),
+      partners.length?el("p",{},el("b",{text:"Partner(s): "}),partners.join(", ")):null,
+      kids.length?el("p",{},el("b",{text:"Children: "}),kids.join(", ")):null,
+      el("p",{class:"muted",text:g.story[0]}),
+      el("p",{},el("b",{text:`Goals: ${done.size} of ${goals.length}. `}),goals.filter((gl,i)=>done.has(i)).map(gl=>"✓ "+gl.t).join(" · ")),
+      s.dare?el("p",{},"😈 Dare done: "+g.dare):null, s.bonus?el("p",{},"⭐ Bonus: "+g.bonus):null, s.twist?el("p",{},"👀 Twist: "+g.twist):null,
+      s.chat?el("p",{},el("b",{text:g.chat+" "}),s.chat):null, s.liked?el("p",{},el("b",{text:"Loved: "}),s.liked):null));});
+  if(posts.length) book.append(el("div",{class:"gen"},el("h2",{text:"In her own words"}),...posts.map(e=>el("p",{},el("span",{class:"muted",text:`Gen ${e.gen} · ${new Date(e.at).toLocaleDateString()}: `}),e.text))));
+  const pr=()=>{let d=$("#bookPrint");if(!d){d=h("div",{id:"bookPrint"});document.body.append(d);}d.innerHTML="";d.append(book.cloneNode(true));window.print();};
+  openSheet({n:0,e:"📖",c:pcolor(name),title:`The ${name} Legacy`,tag:"The Legacy Book",traits:[]},
+    h("div",{class:"sbody"},h("div",{class:"panel"},h("div",{class:"pb"},h("button",{class:"btn go",type:"button",onclick:pr},"🖨️ Print or save as PDF"))),h("div",{class:"panel"},h("div",{class:"pb"},book))),"Book");
 }
 function reactionsFor(id){ const m={}; LIVE.reactions.filter(r=>r.id===id).forEach(r=>{const s=m[r.emoji]||(m[r.emoji]=new Set());const k=key(r.who);s.has(k)?s.delete(k):s.add(k);}); return m; }
 function feedItem(e){
@@ -862,6 +939,7 @@ function renderMe(){
   v.append(h("div",{class:"row"},h("button",{class:"btn go",type:"button",onclick:()=>finishSheet(n)},`Finish generation ${n}`),
     h("button",{class:"btn ghost",type:"button",onclick:()=>openGen(n)},"See how the girls did")));
   const fp=familyPanel(ME,"🌳 Your family tree"); if(fp) v.append(fp);
+  v.append(h("button",{class:"btn ghost",type:"button",onclick:()=>openBook(ME)},"📖 My Legacy Book (print or PDF)"));
   const gp=gamePanel(ME,"🎮 Your household now"); if(gp) v.append(gp);
   v.append(treePanel(MINE,false));
 }
@@ -1032,6 +1110,7 @@ function openPlayer(name){
       h("div",{class:"rowi"},h("span",{text:"Dares done"}),h("span",{text:String(dares)})),
       h("div",{class:"rowi"},h("span",{text:"Average rating"}),h("span",{text:avg}))),
     p.status&&p.status.text?h("div",{class:"panel"},h("div",{class:"pb"},h("span",{class:"label",text:"Status · "+ago(p.status.at)}),h("p",{text:p.status.text}))):null,
+    h("button",{class:"btn ghost",type:"button",onclick:()=>openBook(name)},"📖 Open the Legacy Book"),
     familyPanel(name),
     gamePanel(name,`🎮 ${name}'s household now`),
     treePanel(p,false),
