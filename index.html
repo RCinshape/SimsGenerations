@@ -1038,24 +1038,25 @@ function openPlayer(name){
 
 /* ---------- identity ---------- */
 const ERR={wrong_name_or_pin:"That name and PIN don't match.",locked:"Too many tries. This name is locked for 15 minutes.",busy:"Too many wrong PINs in the group just now. Try again in 15 minutes.",pin_format:"Use 4 to 12 digits.",
-  invite_used_or_wrong:"This personal link was already used or is wrong. Log in with your name and PIN, or ask the host.",wrong_code:"That party code is wrong.",
+  invite_used_or_wrong:"This personal link was already used or is wrong. Log in with your name and PIN, or ask the host.",wrong_code:"That party code is wrong.",wrong_player_code:"That personal code is wrong. Ask the host for your code.",
   name_taken:"That name is already in the group. Log in instead.",bad_name:"Use at least 2 letters.",full:"The group is full.",slow_down:"Slow down a little and try again."};
 function errText(e){ if(e.message==="nolink") return "Open the app with the link from the group's Discord (this page needs the full link once)."; if(e.message==="offline") return GAS?"Can't reach the app. Check your internet and try again.":"Can't reach the host's server. Is it on?"; if(e.message==="429"&&!e.code) return "Too many tries from your connection. Try again in an hour."; return ERR[e.code]||"Something went wrong. Try again."; }
 function pinInput(id,ph){ return h("input",{type:"password",id,inputmode:"numeric",autocomplete:id==="pin"?"current-password":"new-password",pattern:"[0-9]*",maxlength:"12",placeholder:ph||"4–12 digits"}); }
 async function pickScreen(msg){
   ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); $("#tabs").hidden=true; $("#meBtn").hidden=true;
   $("#gate").hidden=false; const p=$("#authPanel"); p.innerHTML=""; $("#gateMsg").textContent=msg||"";
-  let names=[]; try{ names=(await api("names")).names||[]; }catch(e){ $("#gateMsg").textContent=errText(e); }
+  let names=[], needCode=false; try{ const nd=await api("names"); names=nd.names||[]; needCode=!!nd.needCode; }catch(e){ $("#gateMsg").textContent=errText(e); }
+  const codeIn=needCode?h("input",{type:"text",id:"pickCode",placeholder:"Your personal code (from the host)",autocomplete:"one-time-code",style:"font:inherit;padding:12px;border-radius:12px;border:2px solid var(--hair)"}):null;
   const sel=h("select",{id:"pickName",class:"pick"},h("option",{value:""},"Choose your name…"),...names.map(n=>h("option",{value:n},n)));
   const go=h("button",{class:"btn go big",type:"button",id:"pickBtn",disabled:true},"Choose your name first");
   sel.onchange=()=>{ const v=sel.value; go.disabled=!v; go.textContent=v?`Yes, I'm ${v} →`:"Choose your name first"; };
   go.onclick=async()=>{ const v=sel.value; if(!v) return; go.disabled=true;
-    try{ const prev=ls.get("tg-prev")||""; const d=await api("pick",{name:v,prev}); ls.del("tg-prev"); enter(d.name,true,!!prev&&key(prev)!==key(d.name)); }
+    try{ const prev=ls.get("tg-prev")||""; const d=await api("pick",{name:v,prev,code:codeIn?codeIn.value:""}); ls.del("tg-prev"); enter(d.name,true,!!prev&&key(prev)!==key(d.name)); }
     catch(e){ go.disabled=false; $("#gateMsg").textContent=errText(e); } };
   p.append(h("div",{class:"ph"},h("h2",{},"Who are you?"),h("span",{},"One time on this PC")),
     h("div",{class:"pb",style:"display:grid;gap:14px"},
       h("div",{class:"must"},"⚠️ Pick ",h("b",{},"YOUR OWN")," name. Your game file is made for this name. The wrong name puts your game into someone else's legacy."),
-      sel,go,
+      sel,codeIn,go,
       h("button",{class:"btn ghost sm",type:"button",style:"justify-self:center",onclick:()=>authScreen("join")},"Not in the list? Join with a party code")));
 }
 function authScreen(kind,msg){

@@ -115,6 +115,11 @@ function draw(D){
     h("p",{class:"muted",text:"How to get a webhook link: in Discord, right-click the channel › Edit Channel › Integrations › Webhooks › New Webhook › Copy Webhook URL."}),
     h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Save",onclick:async()=>{const v=id=>{const x=$(id).value.trim();return x.includes("••••")?"*":x;};say(nout,await call("notify",{feed:v("#nFeed"),alert:v("#nAlert"),mail:$("#nMail").value.trim()}));}}),
       h("button",{type:"button",text:"Send a test",onclick:async()=>{nout.textContent="Sending…";say(nout,await call("notifytest"));}}),nout))));
+  const cout=h("span",{class:"msg"});
+  m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Personal player codes"}),h("span",{class:"muted",text:D.codesOn?"REQUIRED":"Prepared, not required"})),h("div",{class:"cb"},
+    h("p",{class:"muted",text:"Each girl can get her own code. When codes are required, she types it once when she picks her name on a new PC or phone. A code is shown only once: give it to her privately. A new code replaces the old one."}),
+    h("div",{class:"row"},...D.players.map(p=>h("button",{type:"button",text:(p.hasCode?"New code: ":"Make code: ")+p.name,onclick:async()=>{cout.textContent="…";say(cout,await call("pcode",p.name));}}))),
+    h("div",{class:"row"},h("button",{class:D.codesOn?"":"go",type:"button",text:D.codesOn?"Stop requiring codes":"Require codes now",onclick:async()=>{const r=await call("codeson",{on:!D.codesOn});say(cout,r);if(r.ok){const x=await call("refresh");if(x.ok)draw(x.data);}}}),cout))));
   const uout=h("span",{class:"msg"}), file=h("input",{type:"file",accept:".json"});
   m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Mod updates"}),h("span",{class:"muted",text:"Live version: v"+MODV})),h("div",{class:"cb"},
     h("p",{class:"muted",text:"Upload a signed mod-update-vN.json (Claude makes it with your signing key). Each game checks the signature, updates itself at its next save, and the girl restarts the game once."}),
