@@ -27,9 +27,46 @@ const HP=new URLSearchParams(location.hash.slice(1)), GID=HP.get("g")||"", KEY=B
 const $=s=>document.querySelector(s);
 const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="text")e.textContent=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(v!=null&&v!==false)e.setAttribute(x,v);}k.forEach(c=>c!=null&&c!==false&&e.append(c));return e;};
 function ago(t){if(!t)return"never";const s=Math.max(1,Math.round((Date.now()-t)/1000));if(s<60)return"just now";const m=Math.round(s/60);if(m<60)return m+" min ago";const hh=Math.round(m/60);if(hh<48)return hh+" h ago";return Math.round(hh/24)+" days ago";}
-function call(action,name){
-  if(BOOTK) return new Promise((ok,bad)=>google.script.run.withSuccessHandler(ok).withFailureHandler(bad).hostAction(KEY,action,name==null?"":name));
-  return fetch(`https://script.google.com/macros/s/${GID}/exec`,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({host:KEY,action,arg:name==null?"":name})}).then(r=>r.json());   // no Google cookies: works with many Google accounts
+let SESS=(()=>{try{return sessionStorage.getItem("tg-hs")||"";}catch(e){return "";}})();
+const setSess=t=>{SESS=t||"";try{t?sessionStorage.setItem("tg-hs",t):sessionStorage.removeItem("tg-hs");}catch(e){}};
+async function call(action,name){
+  let r;
+  if(BOOTK) r=await new Promise((ok,bad)=>google.script.run.withSuccessHandler(ok).withFailureHandler(bad).hostAction(KEY,action,name==null?"":name,SESS));
+  else r=await fetch(`https://script.google.com/macros/s/${GID}/exec`,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({host:KEY,action,arg:name==null?"":name,s:SESS})}).then(x=>x.json());   // no Google cookies: works with many Google accounts
+  if(r&&r.login){ setSess(""); loginScreen("Your login ended. Log in again."); throw new Error("login"); }
+  return r;
+}
+const field=(id,label,type,extra)=>h("label",{style:"display:grid;gap:4px"},label,h("input",Object.assign({id,type,style:"font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px"},extra||{})));
+function card(title,...k){const m=$("#main");m.textContent="";m.append(h("section",{class:"card",style:"max-width:440px;margin:30px auto;width:100%"},h("div",{class:"ch"},h("h2",{text:title})),h("div",{class:"cb"},...k)));}
+function loadQR(){return new Promise(ok=>{if(window.QRCode)return ok();const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";s.onload=ok;s.onerror=ok;document.head.append(s);});}
+async function setupScreen(){
+  const r=await call("setupstart");
+  if(!r.ok){card("Health login",h("p",{class:"alert",text:r.msg||"Didn't work."}));return;}
+  const qr=h("div",{style:"display:grid;place-items:center;padding:8px;background:#fff"}), out=h("span",{class:"msg"});
+  card("Set up your Health login (one time)",
+    h("p",{text:"1. Open an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, Authy…) and scan this code:"}),qr,
+    h("p",{class:"muted",text:"No camera? Type this key in the app: "+r.secret.replace(/(.{4})/g,"$1 ").trim()}),
+    h("p",{text:"2. Choose a password (10 or more characters) and type the 6-digit code from the app:"}),
+    field("pw1","Password","password",{autocomplete:"new-password"}),field("pw2","Password again","password",{autocomplete:"new-password"}),field("code","6-digit code","text",{inputmode:"numeric",maxlength:"6",autocomplete:"one-time-code"}),
+    h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Save and log in",onclick:async()=>{
+      if($("#pw1").value!==$("#pw2").value){out.textContent="The passwords are not the same.";return;}
+      const x=await call("setupfinish",{pw:$("#pw1").value,code:$("#code").value});
+      if(x.ok){setSess(x.session);start();}else out.textContent=x.msg||"Didn't work.";}}),out));
+  await loadQR(); if(window.QRCode) new QRCode(qr,{text:r.uri,width:200,height:200}); else qr.append(h("a",{href:r.uri,text:"Open in the authenticator app"}));
+}
+function loginScreen(msg){
+  const out=h("span",{class:"msg",text:msg||""});
+  const go=async()=>{out.textContent="Checking…";const x=await call("login",{pw:$("#pw").value,code:$("#code").value});if(x.ok){setSess(x.session);start();}else{out.textContent=x.msg||"Didn't work.";$("#code").value="";}};
+  card("Health · log in",field("pw","Password","password",{autocomplete:"current-password"}),field("code","6-digit code from your authenticator app","text",{inputmode:"numeric",maxlength:"6",autocomplete:"one-time-code",onkeydown:e=>{if(e.key==="Enter")go();}}),
+    h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Log in",onclick:go}),out),
+    h("p",{class:"muted",text:"Lost the phone or the password? In the Google script editor, run resetHealthLogin, then set it up again here."}));
+}
+async function start(){
+  $("#main").textContent="Loading…";
+  try{
+    if(!SESS){ const a=await call("authstate"); if(!a.ok){$("#main").textContent=a.msg||"Wrong link.";return;} if(a.setup) return setupScreen(); return loginScreen(a.locked?"Too many wrong tries. Wait 15 minutes.":""); }
+    const r=await call("refresh"); if(r&&r.ok) draw(r.data); else $("#main").textContent=(r&&r.msg)||"Wrong link.";
+  }catch(e){ if(e.message!=="login") $("#main").textContent="Can't reach the app. Check the internet and refresh."; }
 }
 function say(el,r){el.textContent=r&&r.msg?r.msg:(r&&r.ok?"Done.":"Didn't work.");}
 let MODV=3;
@@ -86,14 +123,14 @@ function draw(D){
   m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Host tools"})),h("div",{class:"cb"},
     h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Refresh",onclick:async()=>{try{const r=await call("refresh");if(r.ok)draw(r.data);}catch(e){out.textContent=e.message;}}}),
       h("button",{type:"button",text:"Download all data (for Claude)",onclick:async()=>{const r=await call("export");const u=URL.createObjectURL(new Blob([r.text],{type:"application/json"}));const a=h("a",{href:u,download:r.name});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},4000);}}),
-      h("button",{type:"button",text:"Import data from the PC server",onclick:async()=>{say(out,await call("import"));}}),out),
+      h("button",{type:"button",text:"Import data from the PC server",onclick:async()=>{say(out,await call("import"));}}),
+      h("button",{class:"danger",type:"button",text:"Log out",onclick:async()=>{try{await call("logout");}catch(e){} setSess("");loginScreen("Logged out.");}}),out),
     h("p",{class:"muted",text:"Links (also in the setup log):"}),h("pre",{text:D.links.join("\n")}),
     h("p",{class:"muted",text:"What happened lately:"}),h("pre",{text:(D.host||[]).map(x=>new Date(x.at).toLocaleString()+"  "+x.t).join("\n")||"(nothing yet)"}))));
 }
 if(!BOOTK) window.addEventListener("hashchange",()=>location.reload());
-if(BOOTD) draw(BOOTD);
-else if(!GID||!KEY) $("#main").textContent="Open this page with your full Health link.";
-else { $("#main").textContent="Loading…"; call("refresh").then(r=>{ if(r&&r.ok) draw(r.data); else $("#main").textContent=(r&&r.msg)||"Wrong link."; }).catch(()=>{ $("#main").textContent="Can't reach the app. Check the internet and refresh."; }); }
+if(!BOOTK&&(!GID||!KEY)) $("#main").textContent="Open this page with your full Health link.";
+else start();
 </script>
 
 </body></html>

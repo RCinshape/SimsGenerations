@@ -517,7 +517,7 @@ const norm=s=>String(s||"").toLowerCase().replace(/[^a-z]/g,"");
 const SKILL_ALIAS={cooking:"homestylecooking"};
 const AGE={BABY:"Baby",INFANT:"Infant",TODDLER:"Toddler",CHILD:"Child",TEEN:"Teen",YOUNGADULT:"Young adult",ADULT:"Adult",ELDER:"Elder"};
 const OCC={MERMAID:"🧜 Mermaid",WITCH:"🔮 Spellcaster",WEREWOLF:"🐺 Werewolf",FAIRY:"✨ Fairy",VAMPIRE:"🦇 Vampire",ALIEN:"👽 Alien",PLANTSIM:"🌱 Plant sim",ROBOT:"🤖 Robot"};
-const MOD_VERSION=4;
+const MOD_VERSION=5;
 function syncList(name){ return LIVE.sync[key(name)]||[]; }
 function syncLatest(name){ return syncList(name)[0]||null; }      // newest file of any household: is the connector working?
 function matchName(x,heir){ const parts=String(heir||"").trim().toLowerCase().split(/\s+/); if(!parts[0]) return false;
