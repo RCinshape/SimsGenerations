@@ -295,6 +295,32 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 .disc2 details[open]{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--blue1) 55%,transparent)}
 .disc2 summary em{font-style:normal;font-size:18px}
 .disc2 ul{margin:0;padding:0 16px 14px 36px;display:flex;flex-direction:column;gap:7px;font-size:15px;color:var(--ink)}
+
+/* chaos panel (v2) */
+.chhow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 16px 4px}
+.chhow div{display:flex;gap:10px;align-items:flex-start;background:color-mix(in srgb,#7a4fd0 8%,var(--surface));border-radius:14px;padding:10px 12px}
+.chhow i{font-style:normal;flex:none;width:26px;height:26px;border-radius:50%;background:#7a4fd0;color:#fff;display:grid;place-items:center;font-weight:900;font-size:14px}
+.chhow span{display:flex;flex-direction:column;font-size:13px;color:var(--muted);font-weight:700;line-height:1.35}.chhow b{color:var(--ink);font-size:14px}
+@media (max-width:700px){.chhow{grid-template-columns:1fr}}
+.chme{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px}
+.chrow{display:flex;gap:12px;align-items:center}
+.chsw{position:relative;width:56px;height:32px;border-radius:999px;background:#c9d9e8;flex:none;transition:background .2s}
+.chsw span{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.chsw.on{background:var(--green2)}.chsw.on span{transform:translateX(24px)}
+.chwallet{display:flex;flex-direction:column;align-items:flex-end}.chwallet b{font-size:22px;font-weight:900;color:var(--green2)}
+.chsendbox{display:grid;gap:10px;padding:4px 16px 16px;border-top:1px solid var(--hair)}
+.chstep{font-weight:900;margin-top:10px}
+.chgirls{display:flex;flex-wrap:wrap;gap:8px}
+.chgirl{display:flex;align-items:center;gap:8px;padding:5px 14px 5px 5px;border-radius:999px;box-shadow:inset 0 0 0 2px var(--hair);font-weight:900;background:var(--surface)}
+.chgirl.on{box-shadow:inset 0 0 0 3px var(--blue1);background:color-mix(in srgb,var(--blue1) 12%,var(--surface))}
+.chacts{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.chact{text-align:left;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border-radius:14px;box-shadow:inset 0 0 0 2px var(--hair);background:var(--surface);position:relative}
+.chact b{font-weight:900;font-size:14px;padding-right:44px}.chact span{font-size:12.5px;color:var(--muted);font-weight:700}
+.chact em{position:absolute;top:9px;right:10px;font-style:normal;font-weight:900;font-size:13px;color:var(--green2)}
+.chact.on{box-shadow:inset 0 0 0 3px #7a4fd0;background:color-mix(in srgb,#7a4fd0 10%,var(--surface))}
+.chact.poor{opacity:.5}
+.chnote{font:inherit;padding:10px;border-radius:12px;border:2px solid var(--hair);background:var(--surface);width:100%;color:inherit}
+.chsend{justify-self:stretch;white-space:normal}.chsend:disabled{filter:grayscale(1);opacity:.6;cursor:default}
 /* ---------- dark mode ---------- */
 .themebtn{flex:none;position:relative;width:52px;height:30px;border-radius:999px;padding:0;background:#c9d9e8;box-shadow:inset 0 0 0 2px rgba(0,0,0,.08);transition:background .2s;font-size:0}.themebtn::after{content:"☀️";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}html[data-theme=dark] .themebtn{background:#3a9ae8}html[data-theme=dark] .themebtn::after{content:"🌙";transform:translateX(22px);background:#0f2034}
 html[data-theme=dark]{--sky1:#0b1826;--sky2:#11233a;--bg:#0f2034;--surface:#172b42;--ink:#e6f0fa;--muted:#9fb6cc;--hair:#2b4763;
@@ -351,7 +377,7 @@ html[data-theme=dark] a{color:#8cc4f5}
     <div class="panel"><div class="ph"><h2>Who's where</h2><span>Generation 1 → 20</span></div><div class="pb"><div class="track"><div class="rail" id="rail"></div></div></div></div>
     <div class="players" id="players"></div>
     <div class="panel"><div class="ph"><h2>🗳️ Votes</h2><span>Decide each other's fate</span></div><div id="votes"></div></div>
-    <div class="panel"><div class="ph"><h2>🎲 Chaos button</h2><span>Only girls who switched it on</span></div><div id="chaos"></div></div>
+    <div class="panel"><div class="ph"><h2>🎲 Chaos button</h2><span>Send a surprise into another girl's game</span></div><div id="chaos"></div></div>
     <div class="panel">
       <div class="ph"><h2>What's happening</h2><span id="feedCount"></span></div>
       <div class="pb"><div class="compose"><textarea id="post" maxlength="400" placeholder="Share a moment…"></textarea><button class="btn go" id="postBtn" type="button">Share</button></div></div>
@@ -871,16 +897,39 @@ function renderVotes(){
 /* ---------- chaos ---------- */
 function renderChaos(){
   const box=$("#chaos"); if(!box) return; box.innerHTML=""; const c=LIVE.chaos; if(!c){box.append(h("div",{class:"empty",text:"Not available yet."}));return;}
+  const w=c.wallet||{left:0,earned:0,spent:0}, left=c.perDay-(c.today||0);
+  // 1. how it works, in 3 steps
+  box.append(h("div",{class:"chhow"},
+    h("div",{},h("i",{},"1"),h("span",{},h("b",{},"Switch it on"),"Only girls who switch ON can get chaos.")),
+    h("div",{},h("i",{},"2"),h("span",{},h("b",{},"Earn 💚 by playing"),"1 per goal ticked, 5 per finished generation, 2 per dare or bonus.")),
+    h("div",{},h("i",{},"3"),h("span",{},h("b",{},"Spend 💚 on a surprise"),"It pops up as a Sims message in her game."))));
+  // 2. my switch + my wallet
+  const sw=h("button",{class:"chsw"+(c.mine?" on":""),type:"button",role:"switch","aria-checked":c.mine?"true":"false",onclick:async()=>{
+    try{await api("chaos_opt",{on:!c.mine});toast(!c.mine?"Chaos ON. Brave.":"Chaos OFF");await pull();render();}catch(e){toast("Didn't work",true);}}},h("span",{}));
+  box.append(h("div",{class:"chme"},
+    h("div",{class:"chrow"},sw,h("div",{},h("b",{text:c.mine?"Chaos in MY game: ON":"Chaos in MY game: OFF"}),h("div",{class:"muted small",text:c.mine?"The girls can send you surprises.":"Nobody can send you anything. Switch on to join the fun."}))),
+    h("div",{class:"chwallet"},h("b",{text:`${w.left} 💚`}),h("span",{class:"muted small",text:`to spend · ${Math.max(0,left)} of ${c.perDay} sends left today`}))));
+  // 3. send
   const targets=c.open.filter(n=>key(n)!==key(ME));
-  const sw=h("label",{class:"toggle"},h("input",{type:"checkbox",checked:c.mine?true:null,onchange:async ev=>{try{await api("chaos_opt",{on:ev.target.checked});toast(ev.target.checked?"Chaos ON. Brave.":"Chaos OFF");await pull();render();}catch(e){toast("Didn't work",true);}}}),
-    h("span",{},h("b",{text:"Let the girls send chaos into MY game. "}),"Small, safe things only: a money envelope, council tax, a dare, a compliment, gossip. They show up as a Sims message in your game (needs the newest game file)."));
-  box.append(h("div",{class:"chaos"},sw));
-  if(!targets.length){box.append(h("div",{class:"empty",text:"Nobody else has switched the chaos button on yet."}));return;}
-  const who=h("select",{},...targets.map(n=>h("option",{value:n},n))), act=h("select",{},...c.actions.map(a=>h("option",{value:a.id},a.label)));
-  const note=h("input",{maxlength:"100",placeholder:"Add a note (optional)"});
-  box.append(h("div",{class:"chaos"},h("b",{text:"Send chaos"}),who,act,note,h("button",{class:"btn go",type:"button",onclick:async()=>{
-    try{await api("chaos",{target:who.value,act:act.value,note:note.value.trim()});toast("Sent 🎲 It shows up in her game soon.");note.value="";}
-    catch(e){toast(e.code==="chaos_wait"?"Slow down: one per girl every 2 hours":e.code==="chaos_off"?"She switched chaos off":"Couldn't send",true);}}},"Press the chaos button 🎲")));
+  if(!targets.length){box.append(h("div",{class:"empty",text:"Nobody else has switched chaos on yet. When someone does, you can send her a surprise here."}));return;}
+  let who=renderChaos.who&&targets.includes(renderChaos.who)?renderChaos.who:targets[0], act=renderChaos.act||null;
+  const send=h("button",{class:"btn go chsend",type:"button"}), note=h("input",{class:"chnote",maxlength:"100",placeholder:"Add a note (optional)",value:renderChaos.note||"",oninput:e=>renderChaos.note=e.target.value});
+  const girls=h("div",{class:"chgirls"}), acts=h("div",{class:"chacts"});
+  const paint=()=>{
+    girls.innerHTML=""; targets.forEach(n=>girls.append(h("button",{type:"button",class:"chgirl"+(n===who?" on":""),onclick:()=>{who=renderChaos.who=n;paint();}},avatar(n),h("span",{text:n}))));
+    acts.innerHTML=""; c.actions.forEach(a=>{const poor=a.cost>w.left;
+      acts.append(h("button",{type:"button",class:"chact"+(a.id===act?" on":"")+(poor?" poor":""),onclick:()=>{act=renderChaos.act=a.id;paint();}},
+        h("b",{text:a.label}),h("span",{text:a.what}),h("em",{text:`${a.cost} 💚`})));});
+    const A=c.actions.find(a=>a.id===act);
+    send.disabled=!A||A.cost>w.left||left<=0;
+    send.textContent=!A?"Pick a surprise above":left<=0?"No sends left today. Back tomorrow!":A.cost>w.left?`You need ${A.cost} 💚 (you have ${w.left})`:`Send to ${who} for ${A.cost} 💚 🎲`;
+  };
+  send.onclick=async()=>{const A=c.actions.find(a=>a.id===act); if(!A) return; send.disabled=true;
+    try{const r=await api("chaos",{target:who,act,note:note.value.trim()});toast(`Sent 🎲 ${who} sees it in her game soon.`);note.value="";renderChaos.note="";renderChaos.act=null;await pull();render();}
+    catch(e){toast({chaos_wait:`You already sent ${who} something. Wait 2 hours.`,chaos_day:"That's your 3 for today. Back tomorrow!",chaos_full:`${who} is getting a lot of chaos. Try in an hour.`,chaos_poor:"Not enough 💚. Tick some goals!",chaos_off:`${who} switched chaos off.`}[e.code]||"Couldn't send",true);paint();}};
+  paint();
+  box.append(h("div",{class:"chsendbox"},h("div",{class:"chstep",text:"Who gets it?"}),girls,h("div",{class:"chstep",text:"What do you send?"}),acts,note,send,
+    h("p",{class:"muted small",text:"She needs the newest game file to see it in her game. It also shows in the Discord channel."})));
 }
 /* ---------- the Legacy Book ---------- */
 function openBook(name){
