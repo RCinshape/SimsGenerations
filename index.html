@@ -271,6 +271,30 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 .steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
 .empty{padding:18px 16px;color:var(--muted);font-size:15px;text-align:center}
 
+
+/* rules panel (v2): colour tiles, "never" chips, card-style drop-downs */
+.rgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding:16px}
+.rule{position:relative;border-radius:18px;padding:14px 14px 15px;display:flex;flex-direction:column;gap:3px;min-width:0;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--rc) 14%,var(--surface)),var(--surface) 80%);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--rc) 30%,transparent)}
+.rule i{font-style:normal;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:22px;margin-bottom:6px;
+  background:var(--rc);box-shadow:inset 0 -3px 0 rgba(0,0,0,.16),0 3px 8px color-mix(in srgb,var(--rc) 40%,transparent)}
+.rule b{font-size:16px;font-weight:900;line-height:1.2;color:var(--ink)}
+.rule span{font-size:13px;color:var(--muted);font-weight:700}
+@media (max-width:820px){.rgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px}.rule:last-child{grid-column:1/-1}}
+.nope{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 16px 16px;padding:12px 14px;border-radius:16px;
+  background:color-mix(in srgb,#c53a28 8%,var(--surface));box-shadow:inset 0 0 0 2px color-mix(in srgb,#c53a28 22%,transparent)}
+.nope b{color:#c53a28;font-weight:900;margin-right:4px}
+.nope span{font-size:13px;font-weight:800;color:var(--muted);padding:3px 10px;border-radius:999px;background:var(--surface);text-decoration:line-through;text-decoration-color:color-mix(in srgb,#c53a28 60%,transparent);text-decoration-thickness:2px;box-shadow:inset 0 0 0 1.5px var(--hair)}
+.disc2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px;align-items:start}
+@media (max-width:820px){.disc2{grid-template-columns:1fr;padding:0 12px 12px}}
+.disc2 details{border-radius:16px;box-shadow:inset 0 0 0 2px var(--hair);background:var(--surface);overflow:hidden}
+.disc2 summary{cursor:pointer;list-style:none;padding:13px 16px;font-weight:900;color:var(--ink);display:flex;align-items:center;gap:10px}
+.disc2 summary::-webkit-details-marker{display:none}
+.disc2 summary::after{content:"";margin-left:auto;width:9px;height:9px;border:solid var(--muted);border-width:0 2.5px 2.5px 0;transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+.disc2 details[open] summary::after{transform:rotate(-135deg) translateY(-2px)}
+.disc2 details[open]{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--blue1) 55%,transparent)}
+.disc2 summary em{font-style:normal;font-size:18px}
+.disc2 ul{margin:0;padding:0 16px 14px 36px;display:flex;flex-direction:column;gap:7px;font-size:15px;color:var(--ink)}
 /* ---------- dark mode ---------- */
 .themebtn{flex:none;position:relative;width:52px;height:30px;border-radius:999px;padding:0;background:#c9d9e8;box-shadow:inset 0 0 0 2px rgba(0,0,0,.08);transition:background .2s;font-size:0}.themebtn::after{content:"☀️";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}html[data-theme=dark] .themebtn{background:#3a9ae8}html[data-theme=dark] .themebtn::after{content:"🌙";transform:translateX(22px);background:#0f2034}
 html[data-theme=dark]{--sky1:#0b1826;--sky2:#11233a;--bg:#0f2034;--surface:#172b42;--ink:#e6f0fa;--muted:#9fb6cc;--hair:#2b4763;
@@ -343,16 +367,16 @@ html[data-theme=dark] a{color:#8cc4f5}
     <div><h1 class="h1">The plan</h1><p class="sub">Twenty heirs. Twenty worlds. One very dramatic family.</p></div>
     <div class="panel">
       <div class="ph"><h2>Legacy rules</h2><span>Every generation</span></div>
-      <div class="always">
-        <div><b>Max the skills</b><span>Every gen</span></div>
-        <div><b>Finish the aspiration</b><span>Every gen</span></div>
-        <div><b>1–2 kids</b><span>Unless the gen says more</span></div>
-        <div><b>New world</b><span>Build or use the Gallery</span></div>
-        <div><b>Cheats OK</b><span>Twists &amp; dares optional</span></div>
+      <div class="rgrid">
+        <div class="rule" style="--rc:#3a9ae8"><i aria-hidden="true">🧠</i><b>Max the skills</b><span>Every gen</span></div>
+        <div class="rule" style="--rc:#f2b51d"><i aria-hidden="true">🌟</i><b>Finish the aspiration</b><span>Every gen</span></div>
+        <div class="rule" style="--rc:#d9468f"><i aria-hidden="true">👶</i><b>1–2 kids</b><span>Unless the gen says more</span></div>
+        <div class="rule" style="--rc:#3f9b1f"><i aria-hidden="true">🗺️</i><b>New world</b><span>Build or use the Gallery</span></div>
+        <div class="rule" style="--rc:#7a4fd0"><i aria-hidden="true">🎲</i><b>Cheats OK</b><span>Twists &amp; dares optional</span></div>
       </div>
-      <p class="never"><b>Never:</b> gardening, fishing, collecting, camping, holidays, vampires, aliens, plant sims, royalty.</p>
-      <div class="disc">
-        <details><summary>All the rules</summary><ul>
+      <div class="nope"><b>🚫 Never</b><span>gardening</span><span>fishing</span><span>collecting</span><span>camping</span><span>holidays</span><span>vampires</span><span>aliens</span><span>plant sims</span><span>royalty</span></div>
+      <div class="disc2">
+        <details><summary><em>📜</em>All the rules</summary><ul>
           <li>Same story, your own sim. Play at your own speed.</li>
           <li>Tick goals here as you play. Everyone sees it in the Neighborhood.</li>
           <li>Finish a generation here to rate it and answer the chat question.</li>
@@ -362,7 +386,7 @@ html[data-theme=dark] a{color:#8cc4f5}
           <li>Marry into another girl's family from the Gallery at least once.</li>
           <li>Open a twist card only when you start that generation. Skip any twist you hate.</li>
         </ul></details>
-        <details><summary>How your answers built this</summary><ul>
+        <details><summary><em>💬</em>How your answers built this</summary><ul>
           <li><b>Bean:</b> drama, exes, fame, horses, robots, and a dare in every generation.</li>
           <li><b>Dani:</b> never more than 2 kids, one hard grind per gen, a shop, crafting and coding. Dark but never weepy.</li>
           <li><b>Emmy:</b> your dream ranch, detective, crime boss, Reaper, werewolves, fairies and a new world every gen.</li>
