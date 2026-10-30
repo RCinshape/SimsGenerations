@@ -105,14 +105,14 @@ function player(p){
   onlyErr.addEventListener("change",drawLog);drawLog();
   const twoStep=(label,action,cls2)=>{const b=h("button",{class:cls2||"",type:"button",text:label});let armed=false;b.onclick=async()=>{if(!armed){armed=true;b.textContent="Sure? Tap again";setTimeout(()=>{armed=false;b.textContent=label;},4000);return;}armed=false;b.textContent=label;try{say(out,await call(action,p.name));}catch(e){out.textContent="Didn't work: "+e.message;}};return b;};
   return h("section",{class:"card"},
-    h("div",{class:"ch"},h("span",{class:"dot "+cls}),h("h2",{text:p.name}),h("span",{class:"muted",text:"Last contact: "+ago(s.at)})),
+    h("div",{class:"ch"},h("span",{class:"dot "+cls}),h("h2",{text:p.name+(p.tester?" 🧪 TEST":"")}),h("span",{class:"muted",text:"Last contact: "+ago(s.at)})),
     h("div",{class:"cb"},
       ...problems.map(t=>h("div",{class:/^Last problem|OFF|Never|copy|helper can't/.test(t)?"alert":"note",text:t})),
       h("div",{class:"facts"},f("Last contact",s.at?ago(s.at)+(s.via?" (via "+s.via+")":""):"never"),f("Last game file",s.snapAt?ago(s.snapAt):"none"),
         f("Game file version",env.mod?"v"+env.mod:""),f("Sending way",way),f("Windows",env.os),f("Game version",env.game),f("Game's Python",env.py?env.py+(env.ssl?" · has ssl":" · no ssl")+(env.ctypes?" · has ctypes":""):""),
         f("File in Mods",env.file),f("Households sent",(p.files||[]).length?(p.files.map(x=>x.hh+" ("+ago(x.at)+")").join(", ")):""),f("Opened the app",p.picks?p.picks+(p.picks===1?" time":" times"):"not yet")),
       h("div",{class:"row"},h("label",{},onlyErr," only problems")),pre,
-      h("div",{class:"row"},twoStep("New game key","newkey","danger"),out)));
+      h("div",{class:"row"},twoStep("New game key","newkey","danger"),h("button",{type:"button",text:p.tester?"🧪 Make a normal player":"🧪 Make a test player",title:"A test player is hidden from the girls and gets TEST mod updates first",onclick:async()=>{try{const r=await call("tester",p.name);say(out,r);if(r.ok){const x=await call("refresh");if(x.ok)draw(x.data);}}catch(e){out.textContent="Didn't work: "+e.message;}}}),out)));
 }
 function draw(D){
   MODV=D.modNow||MODV;
@@ -136,7 +136,12 @@ function draw(D){
   const uout=h("span",{class:"msg"}), file=h("input",{type:"file",accept:".json"});
   m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Mod updates"}),h("span",{class:"muted",text:"Live version: v"+MODV})),h("div",{class:"cb"},
     h("p",{class:"muted",text:"Upload a signed mod-update-vN.json (Claude makes it with your signing key). Each game checks the signature, updates itself at its next save, and the girl restarts the game once."}),
-    h("div",{class:"row"},file,h("button",{class:"go",type:"button",text:"Upload mod update",onclick:async()=>{const f=file.files[0];if(!f){uout.textContent="Choose the file first.";return;}uout.textContent="Checking the signature…";say(uout,await call("update",await f.text()));}}),uout))));
+    h("p",{class:"muted",text:"Safest way: “Upload as TEST” first. Only test players (your PC) get it. When it works in your game, press “Send to everyone”."}),
+    D.beta?h("div",{class:"note",text:"🧪 TEST update v"+D.beta.v+" is on the test PC(s) only."}):null,
+    h("div",{class:"row"},file,
+      h("button",{class:"go",type:"button",text:"🧪 Upload as TEST",onclick:async()=>{const f=file.files[0];if(!f){uout.textContent="Choose the file first.";return;}uout.textContent="Checking the signature…";const r=await call("updatebeta",await f.text());say(uout,r);if(r.ok){const x=await call("refresh");if(x.ok)draw(x.data);}}}),
+      D.beta?h("button",{type:"button",text:"✅ Send v"+D.beta.v+" to everyone",onclick:async()=>{uout.textContent="Sending…";const r=await call("promote");say(uout,r);if(r.ok){const x=await call("refresh");if(x.ok)draw(x.data);}}}):null,
+      h("button",{type:"button",text:"Upload straight to everyone",onclick:async()=>{const f=file.files[0];if(!f){uout.textContent="Choose the file first.";return;}uout.textContent="Checking the signature…";say(uout,await call("update",await f.text()));}}),uout))));
   const out=h("span",{class:"msg"});
   m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Host tools"})),h("div",{class:"cb"},
     h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Refresh",onclick:async()=>{try{const r=await call("refresh");if(r.ok)draw(r.data);}catch(e){out.textContent=e.message;}}}),
