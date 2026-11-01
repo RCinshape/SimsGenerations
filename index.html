@@ -709,11 +709,12 @@ function doneSet(name,n){ const s=genState(prog(name),n); const set=new Set((s&&
 function autoEmit(){
   if(!ME||!MINE||MINE.complete) return;
   const n=Math.min(MINE.current||1,20), s=st(n), g=G(n), goals=trackGoals(g);
-  s.autoSeen=s.autoSeen||[]; let changed=false;
+  s.autoSeen=s.autoSeen||[]; let changed=false; const events=[];
   const sy=syncOf(ME);
   if(sy&&!s.heirSimId){ const sim=heirSim(sy.data,s); if(sim){ s.heirSimId=String(sim.id); if(!s.heir) s.heir=`${sim.first||""} ${sim.last||""}`.trim(); changed=true; } }
-  autoGoals(ME,n).forEach(i=>{ if(!s.autoSeen.includes(i)){ s.autoSeen.push(i); changed=true; emit("tick",n,`ticked “${goals[i].t}” 🎮 from the game`);} });
+  autoGoals(ME,n).forEach(i=>{ if(!s.autoSeen.includes(i)){ s.autoSeen.push(i); changed=true; events.push(i);} });
   if(changed) saveMine();
+  events.forEach(i=>emit("tick",n,`ticked “${goals[i].t}” 🎮 from the game`,{goal:goals[i].t,source:"game"}));
 }
 function gamePanel(name,title){
   const sy=syncOf(name); if(!sy||!sy.data||!sy.data.sims) return null;
@@ -735,23 +736,30 @@ function gamePanel(name,title){
 const kidsText=g=>g.noKidRule?"3+ (see goals)":g.kids?`${g.kids} needed`:"1 or 2";
 
 /* ---------- server ---------- */
-async function webCall(path,body){
+/* ---------- session ownership: another tab must not change this tab's actor ---------- */
+let SESSION_TOKEN=ls.get("tg-token")||"", sessionGeneration=0;
+function sessionChanged(){ const e=new Error("session_changed"); e.code="session_changed"; return e; }
+function setSessionToken(token){ token=token||""; if(token!==SESSION_TOKEN) sessionGeneration++; SESSION_TOKEN=token; if(SESSION_TOKEN) ls.set("tg-token",SESSION_TOKEN); else ls.del("tg-token"); }
+window.addEventListener("storage",e=>{ if(GAS&&e.key==="tg-token"&&(e.newValue||"")!==SESSION_TOKEN) loggedOut("Your account changed in another tab. Choose your name again."); });
+async function webCall(path,body,token){
   if(!GID) throw new Error("nolink");
   const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),30000);
   try{
     const r=await fetch(`https://script.google.com/macros/s/${GID}/exec`,{method:"POST",credentials:"omit",redirect:"follow",signal:ctl.signal,
-      headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({api:path,b:body==null?null:body,t:ls.get("tg-token")||""})});
+      headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({api:path,b:body==null?null:body,t:token||""})});
     return await r.json();
   }catch(e){ throw new Error("offline"); }
   finally{ clearTimeout(tm); }
 }
-function gasCall(path,body){ if(WEB) return webCall(path,body); return new Promise((ok,bad)=>{ const tm=setTimeout(()=>bad(new Error("offline")),25000);
-  google.script.run.withSuccessHandler(r=>{clearTimeout(tm);ok(r);}).withFailureHandler(()=>{clearTimeout(tm);bad(new Error("offline"));}).api(path,body==null?null:body,ls.get("tg-token")||""); }); }
+function gasCall(path,body,token){ if(WEB) return webCall(path,body,token); return new Promise((ok,bad)=>{ const tm=setTimeout(()=>bad(new Error("offline")),25000);
+  google.script.run.withSuccessHandler(r=>{clearTimeout(tm);ok(r);}).withFailureHandler(()=>{clearTimeout(tm);bad(new Error("offline"));}).api(path,body==null?null:body,token||""); }); }
 async function api(path,body){
+  const generation=sessionGeneration;
   if(GAS){
-    let r; try{ r=await gasCall(path,body); }catch(e){ if(e.message!=="nolink") $("#net").hidden=false; throw e; }
+    let r; try{ r=await gasCall(path,body,SESSION_TOKEN); }catch(e){ if(generation===sessionGeneration&&e.message!=="nolink") $("#net").hidden=false; throw e; }
+    if(generation!==sessionGeneration) throw sessionChanged();
     $("#net").hidden=true;
-    if(r&&typeof r.t==="string"){ if(r.t) ls.set("tg-token",r.t); else ls.del("tg-token"); }
+    if(r&&typeof r.t==="string") setSessionToken(r.t);
     if(!r||r.s!==200){ const err=new Error(String(r&&r.s||500)); err.code=r&&r.d&&r.d.error; if(r&&r.s===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
     return r.d;
   }
@@ -762,10 +770,11 @@ async function api(path,body){
   }catch(e){ $("#net").hidden=false; clearTimeout(tm); throw new Error("offline"); }
   clearTimeout(tm); $("#net").hidden=true;
   let data=null; try{data=await r.json();}catch(e){}
+  if(generation!==sessionGeneration) throw sessionChanged();
   if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
   return data;
 }
-function loggedOut(){ ME=""; MINE=null; $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login","You were logged out. Log in again."); }
+function loggedOut(message){ sessionGeneration++; SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
 let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
 let MINE=null;            // my progress (source of truth on this device)
 let outbox=[];            // events waiting to send
@@ -773,9 +782,12 @@ const saveOutbox=()=>ls.set("tg-outbox-"+key(ME),JSON.stringify(outbox));
 const loadOutbox=()=>{try{outbox=JSON.parse(ls.get("tg-outbox-"+key(ME))||"[]");}catch(e){outbox=[];}};
 
 async function pull(){
+  const generation=sessionGeneration, actor=ME;
   const have={}; Object.entries(LIVE.sync||{}).forEach(([k,a])=>a.forEach(r=>{ have[k+"|"+r.hh]=r.at; }));
   Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ have["fam|"+k]=f.at; });
   const d=await api("live",{have});
+  if(generation!==sessionGeneration||actor!==ME) throw sessionChanged();
+  if(ME&&d.me&&key(d.me)!==key(ME)){ loggedOut("Your account changed. Choose your name again."); throw sessionChanged(); }
   const prog={};(d.progress||[]).forEach(w=>{if(w&&w.name&&w.data){const p=Object.assign({},w.data,{name:w.name});prog[key(w.name)]=p;}});
   const sync={};
   if(Array.isArray(d.syncKeys)){   // Google host: only changed game files come back; keep the rest from last time
@@ -790,23 +802,54 @@ async function pull(){
   LIVE={roster:d.roster||[],progress:prog,feed:d.feed||[],reactions:d.reactions||[],sync,fam,syncOn:!!d.syncOn,mine:d.mine||null,votes:d.votes||[],chaos:d.chaos||null};
   if(ME && !MINE){ MINE=prog[key(ME)]||null; }
   // keep my local copy if it's newer
-  if(ME && MINE){ const srv=prog[key(ME)]; if(srv && (srv.updatedAt||0)>(MINE.updatedAt||0)) MINE=srv; LIVE.progress[key(ME)]=MINE; }
+  if(ME && MINE){ const srv=prog[key(ME)]; if(!dirty && srv && (srv.updatedAt||0)>(MINE.updatedAt||0)) MINE=srv; LIVE.progress[key(ME)]=MINE; }
   autoEmit();
   // add unsent events locally so they show
-  outbox.forEach(e=>{ if(!LIVE.feed.find(f=>f.id===e.id)) LIVE.feed.push(e); });
+  outbox.forEach(e=>{ if(e.who&&key(e.who)!==key(ME)) return; if(e.type==="tick"&&!queuedTickCurrent(e)) return; if(!LIVE.feed.find(f=>f.id===e.id)) LIVE.feed.push(e); });
 }
-let saveTimer=null,saving=false,dirty=false;
-function saveMine(){ if(!MINE) return; MINE.updatedAt=Date.now(); ls.set("tg-mine-"+key(ME),JSON.stringify(MINE)); LIVE.progress[key(ME)]=MINE; dirty=true; clearTimeout(saveTimer); saveTimer=setTimeout(flush,500); }
+let saveTimer=null,saving=false,dirty=false,saveVersion=0;
+function saveMine(){ if(!MINE||!ME) return; if(key(MINE.name)!==key(ME)){ loggedOut(); return; } MINE.updatedAt=Date.now(); ls.set("tg-mine-"+key(ME),JSON.stringify(MINE)); LIVE.progress[key(ME)]=MINE; dirty=true; saveVersion++; clearTimeout(saveTimer); saveTimer=setTimeout(flush,500); }
+function queuedTickIndex(e){
+  const g=G(e.gen); if(!g) return -1;
+  const match=/^ticked “(.+)”(?: 🎮 from the game)?$/.exec(e.text||"");
+  const goal=e.goal||(match&&match[1]);
+  return trackGoals(g).findIndex(x=>x.t===goal);
+}
+function queuedTickCurrent(e){ const i=queuedTickIndex(e); return i<0||doneSet(ME,e.gen).has(i); }
+function pruneQueuedTick(n,i){
+  const removed=new Set();
+  for(let j=outbox.length-1;j>=0;j--){ const e=outbox[j]; if(e.type==="tick"&&e.gen===n&&queuedTickIndex(e)===i){removed.add(e.id);outbox.splice(j,1);} }
+  if(removed.size){ LIVE.feed=LIVE.feed.filter(e=>!removed.has(e.id)); saveOutbox(); }
+}
 async function flush(){
-  if(saving) return; saving=true;
+  if(saving||!ME) return; saving=true;
+  const generation=sessionGeneration, actor=ME, queue=outbox;
+  const current=()=>generation===sessionGeneration&&actor===ME&&queue===outbox;
   try{
-    if(dirty&&MINE){ await api("progress",MINE); dirty=false; }
-    while(outbox.length){ const e=outbox[0]; try{ await api("event",{id:e.id,type:e.type,gen:e.gen,text:e.text}); }catch(x){ if(x.message==="400"){ /* drop bad event */ } else throw x; } outbox.shift(); saveOutbox(); }
+    if(dirty&&MINE){
+      const version=saveVersion, snapshot=JSON.parse(JSON.stringify(MINE));
+      if(key(snapshot.name)!==key(actor)) return;
+      await api("progress",snapshot);
+      if(!current()) return;
+      if(version!==saveVersion) return; // a later edit still needs saving before its events
+      dirty=false;
+    }
+    while(queue.length&&current()){
+      if(dirty) return; // edits made during an event request must be saved before the next event
+      const e=queue[0];
+      if(e.who&&key(e.who)!==key(actor)) return; // retain a foreign event for recovery; never reattribute it
+      if(e.type==="tick"&&!queuedTickCurrent(e)){ queue.shift(); LIVE.feed=LIVE.feed.filter(f=>f.id!==e.id); saveOutbox(); continue; }
+      try{ await api("event",{id:e.id,type:e.type,gen:e.gen,text:e.text,at:e.at,actor,goal:e.goal,source:e.source}); }
+      catch(x){ if(x.message!=="400") throw x; }
+      if(!current()) return;
+      if(queue[0]===e) queue.shift();
+      saveOutbox();
+    }
   }catch(e){ /* retry later */ }
-  saving=false;
+  finally{ saving=false; }
 }
 setInterval(()=>{ if(dirty||outbox.length) flush(); },8000);
-function emit(type,gen,text){ const e={id:uid(),at:Date.now(),who:ME,type,gen,text}; outbox.push(e); saveOutbox(); LIVE.feed.push(e); flush(); return e; }
+function emit(type,gen,text,meta){ if(!ME) return null; const e=Object.assign({id:uid(),at:Date.now(),who:ME,type,gen,text},meta||{}); outbox.push(e); saveOutbox(); LIVE.feed.push(e); flush(); return e; }
 
 /* ---------- tabs / routing ---------- */
 let TAB=ls.get("tg-tab")||"hood";
@@ -958,6 +1001,7 @@ function openBook(name){
 function reactionsFor(id){ const m={}; LIVE.reactions.filter(r=>r.id===id).forEach(r=>{const s=m[r.emoji]||(m[r.emoji]=new Set());const k=key(r.who);s.has(k)?s.delete(k):s.add(k);}); return m; }
 function feedItem(e){
   const g=G(e.gen); const big=e.type==="finish"||e.type==="start";
+  const missingTick=e.type==="tick"&&(e.more||[e.text]).some(text=>{const i=queuedTickIndex({gen:e.gen,text});return i>=0&&!doneSet(e.who,e.gen).has(i);});
   const r=reactionsFor(e.id);
   const reacts=h("div",{class:"reacts"},...EMOJIS.map(em=>{const s=r[em]||new Set();const on=s.has(key(ME));
     return h("button",{class:"react"+(on?" on":""),type:"button","aria-pressed":String(on),title:[...s].join(", "),onclick:async()=>{const rr={id:e.id,who:ME,emoji:em,at:Date.now()};LIVE.reactions.push(rr);render();try{await api("react",{id:e.id,emoji:em});}catch(x){toast("Couldn't send the reaction",true);}}},em,s.size?String(s.size):null);}));
@@ -965,6 +1009,7 @@ function feedItem(e){
   return h("div",{class:"item"+(big?" big":"")},avatar(e.who),
     h("div",{class:"body"},line,e.type==="post"?h("div",{class:"quote",text:e.text}):null,
       e.more?h("div",{class:"quote",text:e.more.map(t=>"✓ "+t.replace(/^ticked “|”$/g,"")).reverse().join("\n")}):null,
+      missingTick?h("div",{class:"muted small tick-status",style:"margin-top:5px",text:e.more?"Some goals in this update are not marked complete now.":"This goal is not marked complete now."}):null,
       h("div",{class:"meta"},g?h("span",{class:"gchip",style:`--gc:${g.c}`,text:`${g.e} Gen ${g.n}`}):null,h("span",{text:ago(e.at)})),
       reacts));
 }
@@ -1017,7 +1062,7 @@ function renderMe(){
   const list=h("div",{class:"panel"},h("div",{class:"ph",style:`background:${g.c}`},h("h2",{},"Goals"),cnt),
     h("div",{class:"bar",style:"margin:12px 16px 4px"},h("i",{style:`width:${done/goals.length*100}%`})),
     ...goals.map((gl,i)=>{const id=`t${n}_${i}`;const cb=h("input",{type:"checkbox",id});cb.checked=(s.ticks||[]).includes(i)||auto.has(i);if(auto.has(i))cb.disabled=true;
-      cb.addEventListener("change",()=>{s.ticks=s.ticks||[];if(cb.checked){if(!s.ticks.includes(i))s.ticks.push(i);emit("tick",n,`ticked “${gl.t}”`);}else{s.ticks=s.ticks.filter(x=>x!==i);}saveMine();
+      cb.addEventListener("change",()=>{if(!MINE||genState(MINE,n)!==s)return;s.ticks=s.ticks||[];if(cb.checked){if(!s.ticks.includes(i))s.ticks.push(i);}else{s.ticks=s.ticks.filter(x=>x!==i);pruneQueuedTick(n,i);}saveMine();if(cb.checked)emit("tick",n,`ticked “${gl.t}”`,{goal:gl.t,source:"manual"});
         if(doneSet(ME,n).size===goals.length){toast("All goals done! Finish the generation when you're ready.");confetti();}render();});
       return h("label",{class:"goal",for:id},cb,h("span",{},gl.rule?h("span",{class:"rule",text:"Every gen"}):null,gl.t,auto.has(i)?h("span",{class:"rule",style:"color:var(--green2)",text:" 🎮 from the game"}):null));}));
   v.append(list);
@@ -1315,12 +1360,15 @@ function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gam
   el.classList.toggle("ok",on);
   if(on&&!$("#setupGo")) el.after(h("button",{class:"btn go big",type:"button",id:"setupGo",onclick:leaveSetup},"Go to my legacy →")); }
 async function enter(name,fresh,switched){
+  sessionGeneration++; clearTimeout(saveTimer); dirty=false;
+  const generation=sessionGeneration;
   ME=name; ls.set("tg-last",ME); loadOutbox(); MINE=null;
   $("#gate").hidden=true; $("#gateMsg").textContent=""; $("#tabs").hidden=false;
   const mb=$("#meBtn"); mb.hidden=false; mb.innerHTML=""; mb.append(avatar(ME));
   mb.onclick=()=>openAccount();
   try{ await pull(); }catch(e){}
-  if(!MINE){ try{ MINE=JSON.parse(ls.get("tg-mine-"+key(ME))||"null"); if(MINE){MINE.name=ME;LIVE.progress[key(ME)]=MINE;dirty=true;flush();} }catch(e){} }
+  if(generation!==sessionGeneration||key(ME)!==key(name)) return;
+  try{ const cached=JSON.parse(ls.get("tg-mine-"+key(ME))||"null"); if(cached&&key(cached.name)===key(ME)&&(!MINE||(cached.updatedAt||0)>(MINE.updatedAt||0))){MINE=cached;LIVE.progress[key(ME)]=MINE;dirty=true;saveVersion++;flush();} }catch(e){}
   if(LIVE.syncOn&&(switched||(!gameSeen()&&(fresh||!ls.get("tg-skip-"+key(ME)))))){ if(GO) clearGo(); setupScreen(switched); return; }
   show(MINE?TAB:"me");
   if(GO) goInstall();
@@ -1342,7 +1390,7 @@ function openAccount(){
     h("div",{class:"sbody"},
       h("div",{class:"panel"},h("div",{class:"pb"},
         h("p",{},GAS?`You're ${ME} on this PC.`:"You're logged in on this device for 30 days."),
-        GAS?h("button",{class:"btn",type:"button",onclick:async()=>{ls.set("tg-prev",ME);try{await api("logout",{});}catch(e){} ls.del("tg-token"); closeSheet(); ME=""; MINE=null; pickScreen(`Not ${ls.get("tg-prev")}? Pick your own name.`);}},`Not ${ME}? Switch name`):null,
+        GAS?h("button",{class:"btn",type:"button",onclick:async()=>{ls.set("tg-prev",ME);try{await api("logout",{});}catch(e){} setSessionToken(""); loggedOut(`Not ${ls.get("tg-prev")}? Pick your own name.`);}},`Not ${ME}? Switch name`):null,
         GAS?null:h("a",{class:"btn ghost",href:"/questions",style:"text-decoration:none;text-align:center"},"Edit my question answers"),
         GAS?null:h("button",{class:"btn",type:"button",onclick:async()=>{try{await api("logout",{});}catch(e){} ls.del("tg-mine-"+key(ME)); location.replace("/");}},"Log out")))),
     "Account");
