@@ -8,6 +8,7 @@ const mock = `<script>
   const progress=name=>({name,current:1,updatedAt:1,gens:{1:{ticks:[2],heir:'Sample Heir',heirSimId:'1001',autoSeen:[]}}});
   if(!localStorage.getItem(KEY)) localStorage.setItem(KEY,JSON.stringify({progress:{'qa-alpha':progress('qa-alpha'),'qa-beta':progress('qa-beta')},feed:[]}));
   if(!localStorage.getItem('tg-token')) localStorage.setItem('tg-token','qa-alpha');
+  if(!localStorage.getItem('tg-g')) localStorage.setItem('tg-g','fixture-backend-000000000000');
   let offline=false;
   const read=()=>JSON.parse(localStorage.getItem(KEY));
   const trace=e=>{const a=JSON.parse(localStorage.getItem(TRACE)||'[]');a.push(e);localStorage.setItem(TRACE,JSON.stringify(a));const p=document.getElementById('qa-trace');if(p)p.textContent=JSON.stringify(a,null,2);};
@@ -31,7 +32,7 @@ const mock = `<script>
     const button=(id,text,fn)=>{const b=document.createElement('button');b.id=id;b.textContent=text;b.onclick=fn;panel.append(b);};
     button('qa-offline','go offline',()=>{offline=true;trace({control:'offline'});});
     button('qa-online','reconnect and flush',async()=>{offline=false;await flush();await pull();render();trace({control:'reconnected',state:read()});});
-    button('qa-account','switch the shared session to qa-beta',()=>{localStorage.setItem('tg-token','qa-beta');trace({control:'another tab picked qa-beta'});});
+    button('qa-account','switch the shared session to qa-beta',()=>{localStorage.setItem(ls.key('tg-token'),'qa-beta');trace({control:'another tab picked qa-beta'});});
     button('qa-reset','reset this fixture',()=>{localStorage.clear();location.reload();});
     const pre=document.createElement('pre');pre.id='qa-trace';pre.style='max-height:200px;overflow:auto;white-space:pre-wrap;font:12px monospace';panel.append(pre);document.body.prepend(panel);
   });

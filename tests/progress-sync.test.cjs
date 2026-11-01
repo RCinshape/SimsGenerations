@@ -23,8 +23,9 @@ function setup() {
     setTimeout: () => 1,
     clearTimeout() {},
     setInterval() {},
-    ls: { get: k => storage.get(k) || null, set: (k, v) => storage.set(k, v), del: k => storage.delete(k) },
+    ls: { key: k => k, get: k => storage.get(k) || null, set: (k, v) => storage.set(k, v), del: k => storage.delete(k) },
     $: selector => {
+      if(selector==='#conflictNotice')return null;
       if (!elements.has(selector)) elements.set(selector, { hidden: true });
       return elements.get(selector);
     },
@@ -166,4 +167,21 @@ test('a stale completion from an old outbox is not displayed on the next poll', 
   app.setTransport(async () => ({s:200,d:{me:'player-a',roster:['player-a'],progress:[],feed:[]}}));
   await app.run('pull()');
   assert.equal(app.run('LIVE.feed.length'), 0);
+});
+
+test('a server-rejected stale completion is removed without retrying forever', async () => {
+  const app=setup();
+  app.run('MINE.gens[1].ticks=[1];outbox=[{id:"eventid123",who:ME,type:"tick",gen:1,text:"ticked “finish the aspiration”",at:123}];LIVE.feed=outbox.slice();');
+  app.setTransport(async()=>({s:409,d:{error:'stale_tick'}}));
+  await app.run('flush()');
+  assert.equal(app.run('outbox.length'),0);
+  assert.equal(app.run('LIVE.feed.length'),0);
+});
+
+test('a newer server revision wins over a device with a faster clock', async () => {
+  const app=setup();
+  app.run('MINE._revision=1;MINE.updatedAt=Date.now()+100000;MINE.gens[1].ticks=[1];');
+  app.setTransport(async()=>({s:200,d:{me:'player-a',progress:[{name:'player-a',data:{name:'player-a',current:1,_revision:2,updatedAt:1,gens:{1:{ticks:[]}}}}],feed:[]}}));
+  await app.run('pull()');
+  assert.deepEqual(Array.from(app.run('MINE.gens[1].ticks')),[]);
 });

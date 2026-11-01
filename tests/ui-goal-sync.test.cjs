@@ -12,7 +12,7 @@ async function waitFor(predicate) {
   throw Error('fixture did not reach the expected state');
 }
 
-async function load(t) {
+async function load(t, preload={}) {
   const errors = [];
   const console = new VirtualConsole();
   console.on('jsdomError', error => errors.push(error.message));
@@ -21,7 +21,7 @@ async function load(t) {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
     virtualConsole: console,
-    beforeParse(window) { window.scrollTo = () => {}; },
+    beforeParse(window) { window.scrollTo = () => {}; for(const [k,v] of Object.entries(preload))window.localStorage.setItem(k,v); },
   });
   t.after(() => dom.window.close());
   const document = dom.window.document;
@@ -87,4 +87,19 @@ test('a historical tick is clearly distinguished from current saved completion',
   await waitFor(() => app.trace().some(e => e.control === 'reconnected'));
   app.click('.tab[data-tab="hood"]');
   assert.match(app.document.querySelector('.tick-status')?.textContent || '', /not marked complete now/);
+});
+
+test('a newer cache without unsaved edits cannot resurrect a completion on login', async t => {
+  const cached={name:'qa-alpha',current:1,updatedAt:Date.now()+100000,gens:{1:{ticks:[1,2],heir:'Sample Heir'}}};
+  const app=await load(t,{'tg-mine-qa-alpha':JSON.stringify(cached)});
+  assert.equal(app.document.querySelector('#t1_1').checked,false);
+  assert.equal(app.trace().filter(e=>e.route==='progress'||e.route==='event').length,0);
+});
+
+test('an explicitly unsaved offline edit is restored and its pending flag clears after saving', async t => {
+  const cached={name:'qa-alpha',current:1,updatedAt:Date.now()+100000,gens:{1:{ticks:[1,2],heir:'Sample Heir'}}};
+  const app=await load(t,{'tg-mine-qa-alpha':JSON.stringify(cached),'tg-pending-qa-alpha':'1'});
+  await waitFor(()=>app.trace().some(e=>e.route==='progress'));
+  assert.equal(app.server().progress['qa-alpha'].gens[1].ticks.includes(1),true);
+  assert.equal(app.dom.window.localStorage.getItem('tg-group-fixture-backend-000000000000:tg-pending-qa-alpha'),null);
 });
