@@ -3,10 +3,26 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-const page = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const session = page.slice(page.indexOf('/* ---------- session ownership'), page.indexOf('async function webCall('));
-const core = page.slice(page.indexOf('async function webCall('), page.indexOf('/* ---------- tabs / routing'));
-const listeners = page.slice(page.indexOf('document.addEventListener("visibilitychange",()=>{ if(document.hidden)'), page.indexOf('\n\n(async()=>', page.indexOf('/* live refresh */')));
+function extractScripts(source){
+  const page=source.replace(/\r\n/g,'\n');
+  function between(start,end,from=0){
+    const a=page.indexOf(start,from), b=page.indexOf(end,a+start.length);
+    if(a<0||b<0) throw new Error(`missing script boundary: ${start} / ${end}`);
+    return page.slice(a,b);
+  }
+  return {
+    session:between('/* ---------- session ownership','async function webCall('),
+    core:between('async function webCall(','/* ---------- tabs / routing'),
+    listeners:between('document.addEventListener("visibilitychange",()=>{ if(document.hidden)','\n\n(async()=>',page.indexOf('/* live refresh */')),
+  };
+}
+const source = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const {session,core,listeners} = extractScripts(source);
+test('script extraction handles windows line endings',()=>{
+  const lf=extractScripts(source.replace(/\r\n/g,'\n'));
+  const crlf=extractScripts(source.replace(/\r\n/g,'\n').replace(/\n/g,'\r\n'));
+  assert.deepEqual(crlf,lf);
+});
 function deferred(){ let resolve; const promise=new Promise(r=>resolve=r); return {promise,resolve}; }
 function fixture(){
   let now=100000, id=0, transport=async()=>({s:200,d:{me:'a'}}); const timers=new Map(), calls=[], handlers={};
