@@ -26,3 +26,11 @@ rollout requires a separate, verified staging deployment and a real browser run.
 browser storage is scoped by google deployment. legacy data is migrated only to its recorded original group and is preserved for recovery. cached progress without an explicit unsaved marker is kept but never automatically written over server progress.
 
 progress writes use a revision check under the server lock. an older device cannot overwrite a newer save silently. the app preserves the unsaved copy, pauses queued activity, and offers a comparison before the player chooses saved progress or this device's changes.
+
+the installer and pc-helper connection check must inspect fresh upload results even when a signed-update message follows the upload. prepare this template-only correction from the current private backend with:
+
+```sh
+node scripts/patch-installer-status.cjs /private/current.gs /private/status-candidate.gs
+```
+
+the patcher changes only the two installer templates and rejects a second application. it preserves the uploader, signed mod payloads, configuration, and api logic. the generated powershell regression runs when `pwsh` is available; a skipped runtime test is not windows execution evidence.
