@@ -6,16 +6,17 @@ This is the standard for player-facing release notices. Keep them professional, 
 
 ## One release, one notice
 
-- Collect changes in [the changelog](../CHANGELOG.md). Combine related fixes across PRs into one release entry and one notice.
+- Collect changes in [the changelog](../CHANGELOG.md). Combine related fixes across PRs into release entries. One notice may cover several releases; list their IDs and never announce the same release twice.
 - Routine changes wait for a meaningful batch. Do not post for every commit, test, ticket, deployment step or background sync.
-- Send at most one routine notice in a rolling 24-hour period. This is a ceiling, not a posting schedule. If nothing useful changed, stay silent.
+- Send at most one routine notice per destination in any rolling 60-minute period, across all releases and senders. This is a ceiling, not an hourly posting schedule. If nothing useful changed, stay silent.
+- Open a batch when the first verified production change is ready; collect further changes for 60 minutes. New changes join that batch without restarting its clock. Send only after both this collection period and the destination's last-send cooldown have elapsed, and only inside the posting window. Overnight changes form one batch for the next window. Longer batching is welcome when changes are minor; do not empty a backlog as a series of hourly messages.
 - Documentation, internal refactoring, staging checks and unchanged status do not need a player announcement.
 - Do not repeat an already announced change or send a catch-up notice about this standard.
 - Keep game-story messages and operational logs separate from release notices. This policy does not change existing game-event or money-alert behavior.
 
 ## What players should see
 
-Use a consistent title, release ID and date, followed by two to four short bullets about the effect on play. Aim for 80–150 words; stay below 1,500 characters including links. Use plain English, calm wording and sentence case. No celebratory filler, teasing accusations, technical dump or maintenance checklist.
+Use a consistent title, release ID (or IDs) and date, followed by two to four short bullets about the effect on play. Aim for 80–150 words; stay below 1,500 characters including links. Use plain English, calm wording and sentence case. No celebratory filler, teasing accusations, technical dump or maintenance checklist. Be warm and matter-of-fact; avoid forced banter, exaggerated claims and pretending the bot is a person. Do not send DMs, ask for reactions, request acknowledgements or chase players who do not respond.
 
 Include only verified changes that reached the stated environment. Say "published; arriving through normal sync" when delivery is gradual. Say "installed for everyone" only when there is evidence for every relevant device. Keep app, backend, helper and game-mod versions distinct in the internal release record; players usually need only the release ID.
 
@@ -44,6 +45,7 @@ Use "Improved" or "Added" instead of "Fixed" when appropriate; omit empty sectio
 
 - Use the release bot identity, never a personal account as a fallback.
 - No @everyone, @here, role or user pings. Set the webhook payload's `allowed_mentions` to `{"parse":[]}`; do not rely on text alone to prevent mentions.
+- Send routine notices with Discord's `SUPPRESS_NOTIFICATIONS` flag (`4096`) and `tts: false`, as well as empty allowed mentions. [Discord documents](https://docs.discord.com/developers/resources/message#message-flags) that this suppresses push and desktop notifications; a badge may still appear. [Webhook delivery supports this flag](https://docs.discord.com/developers/resources/webhook#execute-webhook). Keep the hourly limit even when notifications are suppressed.
 - Routine notices may be sent only between 09:00 and 20:00 in `Europe/London`, including daylight-saving changes. Hold overnight batches until the next window. This is a default posting window, not an exact-time guarantee.
 - An active outage, credible risk of lost progress or other time-sensitive player action may justify a concise incident notice outside the routine limit/window, when messaging is authorized. A normal fix is not an incident.
 - For incidents, send only meaningful changes: the initial impact/action and resolution, with an intermediate update only if the impact or required action changes. Do not post periodic "still investigating" messages.
@@ -53,7 +55,7 @@ Use "Improved" or "Added" instead of "Fixed" when appropriate; omit empty sectio
 
 Before any authorized delivery, check the release entry and the private delivery record for the destination. A prior human-account announcement also counts: a new bot identity is not a reason to repost.
 
-Use a stable release ID such as `2026-11-02.1`. Treat the release ID plus destination as a unique delivery key. Only one operator or process may send that key at a time. Repeated jobs, reconnects and retries must reuse it rather than create a new notice.
+Use stable release IDs such as `2026-11-02.1`. Treat each release ID plus destination as a unique delivery key. Keep a destination-wide send lock and last-send time as well, so different releases or operators cannot bypass the hourly limit. A batch has one Discord receipt shared by all covered release IDs; mark every covered ID as announced. Repeated jobs, reconnects and retries must reuse these records rather than create a new notice.
 
 Keep a small private record using existing storage:
 
@@ -75,8 +77,19 @@ A material correction should normally edit the existing message, only when autho
 - The changelog is the release summary. Detailed reproduction, tests, rollback and rollout evidence belong in linked tickets or release records.
 - A merged PR, published source and verified production rollout are different states. Keep unreleased work clearly separate.
 - Store webhook URLs, tokens, destination IDs, delivery receipts and private rollout evidence outside this public repository. Never put credentials in a changelog, issue, screenshot or example payload.
+- Do not track who reads a notice, collect engagement analytics or monitor players' presence for release communication. Delivery receipts are enough.
 - Use synthetic examples in public docs. Do not publish player saves, personal details, account/session links or private telemetry.
 - Public changelog entries may state that a release was already announced without publishing the private Discord receipt.
 - Documentation is not an implemented queue, lock, scheduler or deduplication service. Until those safeguards exist in a sender, the host must apply them using the release record; agents must not claim automatic enforcement.
 
 Hands-off rollout and bot delivery work remains tracked in [issue #7](https://github.com/RCinshape/SimsGenerations/issues/7). This standard does not close that implementation work or authorize a new post.
+
+## References and chosen approach
+
+These are design references, not services to install or claims about their posting frequency:
+
+- [PatchBot's official FAQ](https://patchbot.io/faq) describes delivering game patch notes and tracking its own delivered messages. Borrow the release-first purpose and delivery record; keep our existing bot rather than adding another integration.
+- [Grafana's notification grouping](https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/group-alert-notifications/) separates the initial collection wait from the interval between later notifications. Borrow that batching model with our own 60-minute policy. Do not copy its recurring reminders: an unchanged release gets no reminder here.
+- [Discord's notification guide](https://support.discord.com/hc/en-us/articles/215253258-Notifications-Settings-101) shows that users can receive notifications for every channel message. No mentions does not guarantee a silent message, so reducing message count remains essential. Do not make players change their notification settings to compensate for bot noise.
+
+Our standard is a short release digest: what improved, how it reaches players and an action only when unavoidable. Quiet by default, no conversational filler and no requests for engagement.
