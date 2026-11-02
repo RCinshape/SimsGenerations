@@ -34,3 +34,7 @@ node scripts/patch-installer-status.cjs /private/current.gs /private/status-cand
 ```
 
 the patcher changes only the two installer templates and rejects a second application. it preserves the uploader, signed mod payloads, configuration, and api logic. the generated powershell regression runs when `pwsh` is available; a skipped runtime test is not windows execution evidence.
+
+## Release communication
+
+See the [changelog](CHANGELOG.md) and [Discord release update standard](docs/discord-updates.md). Aggregate meaningful changes, check prior delivery and follow the owner's current messaging instruction. Do not post on every merge or deployment.
