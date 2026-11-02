@@ -849,11 +849,27 @@ async function api(path,body){
   if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; err.data=data; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
   return data;
 }
-function loggedOut(message){ sessionGeneration++; SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
+function loggedOut(message){ persistTabRecovery(ME); sessionGeneration++; SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
 let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
 let MINE=null;            // my progress (source of truth on this device)
 let outbox=[];            // events waiting to send
-const saveOutbox=()=>ls.set("tg-outbox-"+key(ME),JSON.stringify(outbox));
+let saveTimer=null,saving=false,dirty=false,saveVersion=0,progressConflict=null;
+function tabRecoveryKey(name){return "tg-tab-recovery:"+ls.key("tg-mine-"+key(name));}
+function readTabRecovery(name){
+  try{const r=JSON.parse(window.sessionStorage.getItem(tabRecoveryKey(name))||"null");
+    return r&&r.version===1&&key(r.actor)===key(name)&&Array.isArray(r.outbox)?r:null;
+  }catch(e){return null;}
+}
+function persistTabRecovery(name){
+  if(!name)return;
+  try{
+    const pending=!!dirty||outbox.length>0, store=window.sessionStorage;
+    if(!store)return;
+    if(!pending){store.removeItem(tabRecoveryKey(name));return;}
+    store.setItem(tabRecoveryKey(name),JSON.stringify({version:1,actor:name,mine:MINE&&key(MINE.name)===key(name)?JSON.parse(JSON.stringify(MINE)):null,outbox:JSON.parse(JSON.stringify(outbox)),dirty:!!dirty}));
+  }catch(e){}
+}
+const saveOutbox=()=>{ls.set("tg-outbox-"+key(ME),JSON.stringify(outbox));persistTabRecovery(ME);};
 const loadOutbox=()=>{try{outbox=JSON.parse(ls.get("tg-outbox-"+key(ME))||"[]");}catch(e){outbox=[];}};
 
 async function pull(){
@@ -881,9 +897,9 @@ async function pull(){
   autoEmit();
   // add unsent events locally so they show
   outbox.forEach(e=>{ if(e.who&&key(e.who)!==key(ME)) return; if(e.type==="tick"&&!queuedTickCurrent(e)) return; if(!LIVE.feed.find(f=>f.id===e.id)) LIVE.feed.push(e); });
+  if(dirty||outbox.length)persistTabRecovery(ME);
 }
-let saveTimer=null,saving=false,dirty=false,saveVersion=0,progressConflict=null;
-function saveMine(){ if(!MINE||!ME) return; if(key(MINE.name)!==key(ME)){ loggedOut(); return; } MINE.updatedAt=Date.now(); ls.set("tg-mine-"+key(ME),JSON.stringify(MINE)); ls.set("tg-pending-"+key(ME),"1"); LIVE.progress[key(ME)]=MINE; dirty=true; saveVersion++; clearTimeout(saveTimer); saveTimer=setTimeout(flush,500); }
+function saveMine(){ if(!MINE||!ME) return; if(key(MINE.name)!==key(ME)){ loggedOut(); return; } MINE.updatedAt=Date.now(); ls.set("tg-mine-"+key(ME),JSON.stringify(MINE)); ls.set("tg-pending-"+key(ME),"1"); LIVE.progress[key(ME)]=MINE; dirty=true; saveVersion++; persistTabRecovery(ME); clearTimeout(saveTimer); saveTimer=setTimeout(flush,500); }
 function queuedTickIndex(e){
   const g=G(e.gen); if(!g) return -1;
   const match=/^ticked “(.+)”(?: 🎮 from the game)?$/.exec(e.text||"");
@@ -906,10 +922,11 @@ async function flush(){
       if(key(snapshot.name)!==key(actor)) return;
       const saved=await api("progress",snapshot);
       if(!current()) return;
-      if(saved&&saved.revision){MINE._revision=saved.revision;ls.set("tg-mine-"+key(actor),JSON.stringify(MINE));}
+      if(saved&&saved.revision){MINE._revision=saved.revision;ls.set("tg-mine-"+key(actor),JSON.stringify(MINE));persistTabRecovery(actor);}
       if(version!==saveVersion) return; // a later edit still needs saving before its events
       dirty=false;
       ls.del("tg-pending-"+key(actor));
+      persistTabRecovery(actor);
     }
     while(queue.length&&current()){
       if(dirty) return; // edits made during an event request must be saved before the next event
@@ -929,6 +946,7 @@ async function flush(){
   }catch(e){
     if(current()&&e.code==="progress_conflict"&&e.data&&e.data.progress&&key(e.data.progress.name)===key(actor)){
       progressConflict={actor,generation,server:JSON.parse(JSON.stringify(e.data.progress))};
+      persistTabRecovery(actor);
       showProgressConflict();
     }else if(current()&&(e.code==="actor_mismatch"||e.code==="update_required"))toast("Your changes are paused. Reload the app and choose your name again.",true);
     // Offline errors retain the pending copy and queue for a later retry.
@@ -964,7 +982,7 @@ function resolveProgressConflict(keepLocal){
     MINE=conflict.server;LIVE.progress[key(ME)]=MINE;dirty=false;saveVersion++;clearTimeout(saveTimer);
     ls.set("tg-mine-"+key(ME),JSON.stringify(MINE));ls.del("tg-pending-"+key(ME));
   }
-  render();flush();
+  persistTabRecovery(ME);render();flush();
 }
 setInterval(()=>{ if(dirty||outbox.length) flush(); },8000);
 function emit(type,gen,text,meta){ if(!ME) return null; const e=Object.assign({id:uid(),at:Date.now(),who:ME,type,gen,text},meta||{}); outbox.push(e); saveOutbox(); LIVE.feed.push(e); flush(); return e; }
@@ -1478,12 +1496,20 @@ function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gam
   el.classList.toggle("ok",on);
   if(on&&!$("#setupGo")) el.after(h("button",{class:"btn go big",type:"button",id:"setupGo",onclick:leaveSetup},"Go to my legacy →")); }
 async function enter(name,fresh,switched){
-  sessionGeneration++; clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
+  persistTabRecovery(ME);sessionGeneration++; clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
   const generation=sessionGeneration;
-  ME=name; ls.set("tg-last",ME); loadOutbox(); MINE=null;
-  // Only an explicitly unsaved edit may be replayed. A newer cached timestamp
-  // alone is not evidence that it should overwrite another device's progress.
-  try{ const cached=JSON.parse(ls.get("tg-mine-"+key(ME))||"null"); if(cached&&key(cached.name)===key(ME)&&ls.get("tg-pending-"+key(ME))==="1"){MINE=cached;dirty=true;saveVersion++;} }catch(e){}
+  ME=name; ls.set("tg-last",ME); MINE=null;
+  const recovery=readTabRecovery(ME);
+  if(recovery){
+    MINE=recovery.mine&&key(recovery.mine.name)===key(ME)?recovery.mine:null;
+    outbox=recovery.outbox;dirty=!!recovery.dirty;
+  }else{
+    loadOutbox();
+    // Only an explicitly unsaved edit may be replayed. A newer cached timestamp
+    // alone is not evidence that it should overwrite another device's progress.
+    try{ const cached=JSON.parse(ls.get("tg-mine-"+key(ME))||"null"); if(cached&&key(cached.name)===key(ME)&&ls.get("tg-pending-"+key(ME))==="1"){MINE=cached;dirty=true;saveVersion++;} }catch(e){}
+    if(dirty||outbox.length)persistTabRecovery(ME);
+  }
   $("#gate").hidden=true; $("#gateMsg").textContent=""; $("#tabs").hidden=false;
   const mb=$("#meBtn"); mb.hidden=false; mb.innerHTML=""; mb.append(avatar(ME));
   mb.onclick=()=>openAccount();
