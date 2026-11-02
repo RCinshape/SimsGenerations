@@ -1,0 +1,110 @@
+{
+    "runtime":  "5.1.26100.9711",
+    "local_only":  true,
+    "matrix_cases":  9,
+    "matrix":  [
+                   {
+                       "prior":  0,
+                       "incoming":  0,
+                       "original_wrapped_top_entries":  0,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  0,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  0,
+                       "incoming":  1,
+                       "original_wrapped_top_entries":  0,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  1,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  0,
+                       "incoming":  3,
+                       "original_wrapped_top_entries":  0,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  3,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  1,
+                       "incoming":  0,
+                       "original_wrapped_top_entries":  0,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  1,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  1,
+                       "incoming":  1,
+                       "original_wrapped_top_entries":  1,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  2,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  1,
+                       "incoming":  3,
+                       "original_wrapped_top_entries":  1,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  4,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  3,
+                       "incoming":  0,
+                       "original_wrapped_top_entries":  0,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  3,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  3,
+                       "incoming":  1,
+                       "original_wrapped_top_entries":  1,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  4,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   },
+                   {
+                       "prior":  3,
+                       "incoming":  3,
+                       "original_wrapped_top_entries":  1,
+                       "fixed_wrapped_top_entries":  0,
+                       "fixed_count":  6,
+                       "fixed_ids_preserved":  true,
+                       "unknown_fields_preserved":  true
+                   }
+               ],
+    "actual_sample":  {
+                          "input_top_wrappers":  1,
+                          "output_records":  2,
+                          "tax_and_gift_ids_preserved":  true,
+                          "unknown_tax_text_preserved":  true,
+                          "no_wrappers_in_fixed_output":  true
+                      },
+    "nested_wrappers":  {
+                            "input_depth":  3,
+                            "output_records":  1,
+                            "id_preserved":  true,
+                            "unknown_fields_preserved":  true
+                        },
+    "guardrails":  {
+                       "legitimate_value_count_message_preserved":  true,
+                       "malformed_nonmessage_rejected":  true
+                   },
+    "cap40":  {
+                  "count":  40,
+                  "first_is_m3":  true,
+                  "last_is_new":  true
+              }
+}

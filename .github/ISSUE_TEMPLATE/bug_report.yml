@@ -1,0 +1,51 @@
+name: Bug report
+description: Report one reproducible behavior
+title: "[Bug]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is public. Do not include save files, screenshots, logs, player or household names, credentials, tokens, private URLs, or other personal data. Summarize and redact anything sensitive.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe one behavior and separate observations from guesses about the cause.
+      placeholder: State what you observed. If the cause is uncertain, say so.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include only steps that can be shared publicly. Do not attach private game data.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: What would resolve this?
+      description: Add a short checklist. Mark future ideas as backlog recommendations and note if they are outside the current release.
+      placeholder: |
+        - [ ] ...
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Public information check
+      options:
+        - label: I have removed private player/household details, credentials, tokens, and private files from this report.
+          required: true
