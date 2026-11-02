@@ -5,6 +5,28 @@
 function sameActor_(a, b) {
   return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 }
+// Compare JSON values without treating object key order as a change.
+function progressStableJson_(value) {
+  if (Array.isArray(value)) return '[' + value.map(progressStableJson_).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(function (key) {
+    return JSON.stringify(key) + ':' + progressStableJson_(value[key]);
+  }).join(',') + '}';
+  return JSON.stringify(value);
+}
+function progressEquivalent_(incoming, stored, me) {
+  try {
+    if (!sameActor_(stored.name, me)) return false;
+    function comparable(value, clean) {
+      var copy = JSON.parse(JSON.stringify(value));
+      delete copy._revision;
+      copy.name = me;
+      if (clean) copy = cleanProgress_(copy);
+      return progressStableJson_(copy);
+    }
+    var rawIncoming = comparable(incoming, false), rawStored = comparable(stored, false);
+    return rawIncoming === rawStored && rawIncoming === comparable(incoming, true) && rawStored === comparable(stored, true);
+  } catch (e) { return false; }
+}
 function saveProgress_(me, b) {
   if (!plainJson_(b, MAX_PROGRESS, true)) return res_(400, { error: 'bad_json' });
   if (!plainObj_(b.gens) || !(Number(b.current) >= 1 && Number(b.current) <= 20)) return res_(400, { error: 'bad_progress' });
@@ -15,6 +37,10 @@ function saveProgress_(me, b) {
     var name = 'prog__' + safe_(me) + '.json', previous = readJson_(name, null);
     var previousRevision = previous && Number.isSafeInteger(previous._revision) && previous._revision >= 0 ? previous._revision : 0;
     if (baseRevision !== previousRevision) {
+      if (previous && Number.isSafeInteger(previous._revision) && previous._revision > 0 &&
+          baseRevision < previousRevision && progressEquivalent_(b, previous, me)) {
+        return res_(200, { ok: true, revision: previousRevision, dup: true });
+      }
       var canonical = previous ? cleanProgress_(previous) : null;
       if (canonical) { canonical.name = me; canonical._revision = previousRevision; }
       return res_(409, { error: 'progress_conflict', progress: canonical });

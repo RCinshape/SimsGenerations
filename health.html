@@ -17,6 +17,7 @@ pre{margin:0;max-height:300px;overflow:auto;background:#0f2233;color:#d6e6f5;bor
 pre .e{color:#ff9b8e}pre .w{color:#ffd479}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:8px 12px;background:#e3eef8;color:var(--blue);cursor:pointer}button.go{background:var(--blue);color:#fff}button.danger{background:#fbe1dd;color:var(--bad)}
+.comparison-scroll{overflow-x:auto;max-width:100%}.comparison{border-collapse:collapse;width:100%;min-width:700px;font-size:13px}.comparison th,.comparison td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}.comparison th{color:var(--muted)}.comparison td{overflow-wrap:anywhere}.comparison-status{font-weight:700}.cb,.card,main{min-width:0}
 .msg{font-weight:600;word-break:break-all}.muted{color:var(--muted);font-size:13px}
 label{font-size:13px;color:var(--muted)}
 header{position:relative;padding-right:76px!important}.themebtn{flex:none;position:relative;width:52px;height:30px;border-radius:999px;padding:0;background:#c9d9e8;box-shadow:inset 0 0 0 2px rgba(0,0,0,.08);transition:background .2s;font-size:0}.themebtn::after{content:"☀️";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}html[data-theme=dark] .themebtn{background:#3a9ae8}html[data-theme=dark] .themebtn::after{content:"🌙";transform:translateX(22px);background:#0f2034}header .themebtn{position:absolute;top:16px;right:14px}
@@ -38,16 +39,25 @@ html[data-theme=dark] a{color:#8cc4f5}
 const BOOTD=null, BOOTK=null;
 const HP=new URLSearchParams(location.hash.slice(1)), GID=HP.get("g")||"", KEY=BOOTK||HP.get("h")||"";
 const $=s=>document.querySelector(s);
-const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="text")e.textContent=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(v!=null&&v!==false)e.setAttribute(x,v);}k.forEach(c=>c!=null&&c!==false&&e.append(c));return e;};
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="text")e.textContent=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),event=>{try{const result=v(event);if(result&&typeof result.catch==="function")result.catch(err=>showActionError(e,err));}catch(err){showActionError(e,err);}});else if(v!=null&&v!==false)e.setAttribute(x,v);}k.forEach(c=>c!=null&&c!==false&&e.append(c));return e;};
+function showActionError(el,err){if(err&&["login","obsolete"].includes(err.message))return;const scope=el.closest("section")||document;const out=scope.querySelector(".msg");if(out)out.textContent=err&&err.message?err.message:"Request failed.";}
 function ago(t){if(!t)return"never";const s=Math.max(1,Math.round((Date.now()-t)/1000));if(s<60)return"just now";const m=Math.round(s/60);if(m<60)return m+" min ago";const hh=Math.round(m/60);if(hh<48)return hh+" h ago";return Math.round(hh/24)+" days ago";}
 let SESS=(()=>{try{return sessionStorage.getItem("tg-hs")||"";}catch(e){return "";}})();
-const setSess=t=>{SESS=t||"";try{t?sessionStorage.setItem("tg-hs",t):sessionStorage.removeItem("tg-hs");}catch(e){}};
+let sessionEpoch=0, refreshPending=null;
+const setSess=t=>{sessionEpoch++;refreshPending=null;SESS=t||"";try{t?sessionStorage.setItem("tg-hs",t):sessionStorage.removeItem("tg-hs");}catch(e){}};
 async function call(action,name){
-  let r;
-  if(BOOTK) r=await new Promise((ok,bad)=>google.script.run.withSuccessHandler(ok).withFailureHandler(bad).hostAction(KEY,action,name==null?"":name,SESS));
-  else r=await fetch(`https://script.google.com/macros/s/${GID}/exec`,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({host:KEY,action,arg:name==null?"":name,s:SESS})}).then(x=>x.json());   // no Google cookies: works with many Google accounts
-  if(r&&r.login){ setSess(""); loginScreen("Your login ended. Log in again."); throw new Error("login"); }
-  return r;
+  const epoch=sessionEpoch, session=SESS;
+  const controller=typeof AbortController!=="undefined"?new AbortController():null;
+  let timer;
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{if(controller)controller.abort();reject(new Error(action==="refresh"?"refresh timed out":"Request timed out; result may have completed. Refresh before trying again."));},30000);});
+  try{
+    const request=BOOTK?new Promise((ok,bad)=>google.script.run.withSuccessHandler(ok).withFailureHandler(bad).hostAction(KEY,action,name==null?"":name,session)):
+      fetch(`https://script.google.com/macros/s/${GID}/exec`,{method:"POST",credentials:"omit",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({host:KEY,action,arg:name==null?"":name,s:session}),...(controller?{signal:controller.signal}:{})}).then(x=>x.json());
+    const r=await Promise.race([request,timeout]);
+    if(epoch!==sessionEpoch)throw new Error("obsolete");
+    if(r&&r.login){setSess("");loginScreen("Your login ended. Log in again.");throw new Error("login");}
+    return r;
+  }finally{clearTimeout(timer);}
 }
 const field=(id,label,type,extra)=>h("label",{style:"display:grid;gap:4px"},label,h("input",Object.assign({id,type,style:"font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px"},extra||{})));
 function card(title,...k){const m=$("#main");m.textContent="";m.append(h("section",{class:"card",style:"max-width:440px;margin:30px auto;width:100%"},h("div",{class:"ch"},h("h2",{text:title})),h("div",{class:"cb"},...k)));}
@@ -70,16 +80,17 @@ async function setupScreen(){
 function loginScreen(msg){
   const out=h("span",{class:"msg",text:msg||""});
   const go=async()=>{out.textContent="Checking…";const x=await call("login",{pw:$("#pw").value,code:$("#code").value});if(x.ok){setSess(x.session);start();}else{out.textContent=x.msg||"Didn't work.";$("#code").value="";}};
-  card("Health · log in",field("pw","Password","password",{autocomplete:"current-password"}),field("code","6-digit code from your authenticator app","text",{inputmode:"numeric",maxlength:"6",autocomplete:"one-time-code",onkeydown:e=>{if(e.key==="Enter")go();}}),
+  card("Health · log in",field("pw","Password","password",{autocomplete:"current-password"}),field("code","6-digit code from your authenticator app","text",{inputmode:"numeric",maxlength:"6",autocomplete:"one-time-code",onkeydown:e=>{if(e.key==="Enter")return go();}}),
     h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Log in",onclick:go}),out),
     h("p",{class:"muted",text:"Lost the phone or the password? In the Google script editor, run resetHealthLogin, then set it up again here."}));
 }
 async function start(){
   $("#main").textContent="Loading…";
+  const epoch=sessionEpoch;
   try{
-    if(!SESS){ const a=await call("authstate"); if(!a.ok){$("#main").textContent=a.msg||"Wrong link.";return;} if(a.setup) return setupScreen(); return loginScreen(a.locked?"Too many wrong tries. Wait 15 minutes.":""); }
-    const r=await call("refresh"); if(r&&r.ok) draw(r.data); else $("#main").textContent=(r&&r.msg)||"Wrong link.";
-  }catch(e){ if(e.message!=="login") $("#main").textContent="Can't reach the app. Check the internet and refresh."; }
+    if(!SESS){ const a=await call("authstate"); if(!a.ok){$("#main").textContent=a.msg||"Wrong link.";return;} if(a.setup) return await setupScreen(); return loginScreen(a.locked?"Too many wrong tries. Wait 15 minutes.":""); }
+    const r=await call("refresh"); if(epoch!==sessionEpoch)return; if(r&&r.ok) draw(r.data); else $("#main").textContent=(r&&r.msg)||"Wrong link.";
+  }catch(e){ if(epoch===sessionEpoch&&e.message!=="login"&&e.message!=="obsolete") $("#main").textContent="Can't reach the app. Check the internet and refresh."; }
 }
 function say(el,r){el.textContent=r&&r.msg?r.msg:(r&&r.ok?"Done.":"Didn't work.");}
 let MODV=3;
@@ -91,7 +102,6 @@ function player(p){
   if(!p.picks) problems.push("Hasn't opened the app yet.");
   else if(!s.at) problems.push("Never connected. She should tap “Download the installer” on her PC and open it, then start The Sims 4.");
   if((env.copies||[]).length>1) problems.push("More than one copy of the game file in Mods: "+env.copies.join(", "));
-  if(env.mod&&env.mod<MODV) problems.push(env.updReady>=MODV?"Update v"+MODV+" is installed; it starts when she restarts The Sims 4.":"Old game file (v"+env.mod+"). It updates itself at her next save (or she opens the installer again).");
   if(meta.found===false) problems.push("PC helper can't find The Sims 4 folder.");
   if(meta.modsOff||meta.scriptOff) problems.push("The Sims has mods or script mods switched OFF.");
   if(s.at&&age>3*864e5) problems.push("No contact for "+ago(s.at).replace(" ago","")+". After a game update the game switches mods off.");
@@ -114,10 +124,43 @@ function player(p){
       h("div",{class:"row"},h("label",{},onlyErr," only problems")),pre,
       h("div",{class:"row"},twoStep("New game key","newkey","danger"),h("button",{type:"button",text:p.tester?"🧪 Make a normal player":"🧪 Make a test player",title:"A test player is hidden from the girls and gets TEST mod updates first",onclick:async()=>{try{const r=await call("tester",p.name);say(out,r);if(r.ok){const x=await call("refresh");if(x.ok)draw(x.data);}}catch(e){out.textContent="Didn't work: "+e.message;}}}),out)));
 }
+let comparisonData=null, comparisonAnchor=0, comparisonFailed=false, detailsNow=0, detailsAnchor=0;
+const elapsed=()=>Math.max(0,performance.now()-comparisonAnchor);
+function serverNow(){return Number(comparisonData.now)+elapsed();}
+function relative(t,now){if(!Number.isFinite(Number(t))||Number(t)<=0)return "never";const s=Math.max(0,Math.floor((now-Number(t))/1000));if(s<60)return s+" sec ago";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" h ago";return Math.floor(s/86400)+" days ago";}
+function timed(t,now){if(!Number.isFinite(Number(t))||Number(t)<=0)return h("span",{text:"never"});return h("span",{text:relative(t,now),title:new Date(Number(t)).toLocaleString()});}
+function updateComparison(){
+  const panel=$("#comparison"), stamp=$("#stamp"); if(!panel||!comparisonData||!SESS)return;
+  const D=comparisonData, now=serverNow(), age=elapsed(), stale=age>=60000;
+  stamp.textContent="Last refreshed "+relative(D.now,now)+(comparisonFailed?(stale?" · stale · refresh failed":" · refresh failed"):stale?" · stale":"")+" · player dots show contact within 24 hours, not presence";
+  stamp.title=new Date(Number(D.now)).toLocaleString();
+  const details=$("#details-stamp");if(details){const age=Math.max(0,performance.now()-detailsAnchor);details.textContent="Player details below are from "+relative(detailsNow,detailsNow+age)+". Use Refresh in Host tools to refresh details.";details.title=new Date(detailsNow).toLocaleString();}
+  const priorScroll=panel.querySelector(".comparison-scroll"), scrollLeft=priorScroll?priorScroll.scrollLeft:0;
+  panel.textContent="";
+  const rows=(D.players||[]).map(p=>{const s=p.seen||{}, env=s.env||{}, meta=s.meta||{};
+    const activity=Number.isFinite(Number(p.appSeenAt))&&Number(p.appSeenAt)>0&&Number.isFinite(Number(D.appPresenceWindowMs))&&Number(D.appPresenceWindowMs)>0?(now-Number(p.appSeenAt)<=Number(D.appPresenceWindowMs)?"active in last 90s":"not seen recently"):"unknown";
+    const contact=h("span",{},timed(s.at,now),s.at&&s.via?" via "+s.via:"");
+    return h("tr",{},h("td",{text:p.name}),h("td",{},h("span",{class:"comparison-status",text:activity}),Number(p.appSeenAt)>0?h("div",{},timed(p.appSeenAt,now)):null),h("td",{},contact),h("td",{},timed(s.snapAt,now)),h("td",{text:env.mod!=null&&env.mod!==""?"v"+env.mod:"unknown"}),h("td",{text:meta.up!=null&&meta.up!==""?String(meta.up):"unknown"}));});
+  panel.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Connection comparison"})),h("div",{class:"cb"},
+    h("p",{class:comparisonFailed||stale?"note":"muted",text:"Last refreshed "+relative(D.now,now)+(comparisonFailed?(stale?" · stale · refresh failed; showing last snapshot":" · refresh failed; showing last snapshot"):stale?" · stale; showing last snapshot":"") ,title:new Date(Number(D.now)).toLocaleString()}),
+    h("div",{class:"comparison-scroll"},h("table",{class:"comparison"},h("thead",{},h("tr",{},... ["Player","App activity","Last game/helper contact","Last changed game save","Last reported game version","Last reported helper version"].map(x=>h("th",{scope:"col",text:x})))),h("tbody",{},...rows))),
+    h("p",{class:"muted",text:"App activity is browser polling, not proof that the game is running or a person is present. The relay can be quiet when nothing changes. Latest release bundle: "+(D.modNow!=null?"v"+D.modNow:"unknown")+". Game, helper, and release bundle version numbers are independent."}))));
+  panel.querySelector(".comparison-scroll").scrollLeft=scrollLeft;
+}
+function acceptSnapshot(D){comparisonData=D;comparisonAnchor=performance.now();comparisonFailed=false;updateComparison();}
+async function refreshComparison(full){
+  if(!SESS||(!BOOTK&&(!KEY||!GID))||refreshPending)return;
+  const epoch=sessionEpoch;
+  const pending=(async()=>{try{const r=await call("refresh");if(epoch!==sessionEpoch)return;if(!r||!r.ok||!r.data)throw new Error("refresh failed");if(full)draw(r.data);else acceptSnapshot(r.data);}catch(e){if(epoch===sessionEpoch&&e.message!=="login"&&e.message!=="obsolete"){comparisonFailed=true;updateComparison();}}})();
+  refreshPending=pending;try{await pending;}finally{if(refreshPending===pending)refreshPending=null;}
+}
+setInterval(()=>{if(SESS&&comparisonData)updateComparison();},1000);
+setInterval(()=>{if(!document.hidden&&SESS&&comparisonData)refreshComparison(false);},30000);
 function draw(D){
   MODV=D.modNow||MODV;
-  $("#stamp").textContent="Updated "+new Date(D.now).toLocaleString()+" · green = fine, amber = quiet for a day, red = needs a look";
   const m=$("#main");m.textContent="";
+  detailsNow=Number(D.now);detailsAnchor=performance.now();
+  m.append(h("div",{id:"comparison"}),h("p",{id:"details-stamp",class:"muted"}));acceptSnapshot(D);
   D.players.forEach(p=>m.append(player(p)));
   const n=D.notify||{}, nout=h("span",{class:"msg"});
   const inp=(id,ph,val)=>h("input",{id,placeholder:ph,value:val||"",style:"width:100%;font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:10px"});
@@ -144,10 +187,10 @@ function draw(D){
       h("button",{type:"button",text:"Upload straight to everyone",onclick:async()=>{const f=file.files[0];if(!f){uout.textContent="Choose the file first.";return;}uout.textContent="Checking the signature…";say(uout,await call("update",await f.text()));}}),uout))));
   const out=h("span",{class:"msg"});
   m.append(h("section",{class:"card"},h("div",{class:"ch"},h("h2",{text:"Host tools"})),h("div",{class:"cb"},
-    h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Refresh",onclick:async()=>{try{const r=await call("refresh");if(r.ok)draw(r.data);}catch(e){out.textContent=e.message;}}}),
+    h("div",{class:"row"},h("button",{class:"go",type:"button",text:"Refresh",onclick:async()=>{await refreshComparison(true);}}),
       h("button",{type:"button",text:"Download all data (for Claude)",onclick:async()=>{const r=await call("export");const u=URL.createObjectURL(new Blob([r.text],{type:"application/json"}));const a=h("a",{href:u,download:r.name});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove();},4000);}}),
       h("button",{type:"button",text:"Import data from the PC server",onclick:async()=>{say(out,await call("import"));}}),
-      h("button",{class:"danger",type:"button",text:"Log out",onclick:async()=>{try{await call("logout");}catch(e){} setSess("");loginScreen("Logged out.");}}),out),
+      h("button",{class:"danger",type:"button",text:"Log out",onclick:async()=>{const request=call("logout");setSess("");const epoch=sessionEpoch;comparisonData=null;loginScreen("Logged out.");try{await request;}catch(e){if(epoch===sessionEpoch&&e.message!=="obsolete")loginScreen("Logged out locally. "+e.message);}}}),out),
     h("p",{class:"muted",text:"Links (also in the setup log):"}),h("pre",{text:D.links.join("\n")}),
     h("p",{class:"muted",text:"What happened lately:"}),h("pre",{text:(D.host||[]).map(x=>new Date(x.at).toLocaleString()+"  "+x.t).join("\n")||"(nothing yet)"}))));
 }

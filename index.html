@@ -364,6 +364,7 @@ html[data-theme=dark] a{color:#8cc4f5}
 
 <main><div class="wrap">
   <div class="net" id="net" hidden>Can't reach the host's server. Your last change will send when it's back.</div>
+  <div class="net" id="recoveryWarning" role="alert" hidden>This browser cannot keep a recovery copy. Keep this tab open until changes are saved.</div>
 
   <!-- who are you -->
   <section id="gate" class="gate" hidden>
@@ -579,7 +580,7 @@ const EMOJIS=["❤️","😂","😱","🔥"];
 /* ---------- basics ---------- */
 const $=s=>document.querySelector(s);
 const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="text")e.textContent=v;else if(x==="style")e.style.cssText=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(v!=null&&v!==false)e.setAttribute(x,v===true?"":v);}k.forEach(c=>c!=null&&c!==false&&e.append(c));return e;};
-const rawStorage={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+const rawStorage={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
 const qs=new URLSearchParams(location.search);
 const NATIVE=!!(window.google&&google.script&&google.script.run);   // the page Google serves (needs a private window if she has 2+ Google accounts)
 const WEB=!NATIVE&&!!window.TG_WEB;                                   // the page outside Google: talks to the same Google app with fetch, no Google sign-in
@@ -596,7 +597,7 @@ if(legacyGroup) rawStorage.set("tg-legacy-group",legacyGroup);
 const ls={key:k=>"tg-group-"+encodeURIComponent(storageGroup||"unlinked")+":"+k,
   get(k){const scoped=rawStorage.get(this.key(k));if(scoped!==null)return scoped;
     if(storageGroup&&storageGroup===legacyGroup&&!rawStorage.get("tg-migrated-"+this.key(k))){const old=rawStorage.get(k);rawStorage.set("tg-migrated-"+this.key(k),"1");if(old!==null){rawStorage.set(this.key(k),old);return old;}}return null;},
-  set(k,v){rawStorage.set(this.key(k),v);rawStorage.set("tg-migrated-"+this.key(k),"1");},
+  set(k,v){const ok=rawStorage.set(this.key(k),v);rawStorage.set("tg-migrated-"+this.key(k),"1");return ok;},
   del(k){rawStorage.del(this.key(k));rawStorage.set("tg-migrated-"+this.key(k),"1");}};
 const INVITE=BOOT.invite||qs.get("invite")||"", NEXT=GAS?"":(qs.get("next")||"");
 const goHome=()=>{ if(!GAS) history.replaceState(null,"","/"); };
@@ -784,7 +785,7 @@ async function api(path,body){
   if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; err.data=data; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
   return data;
 }
-function loggedOut(message){ persistTabRecovery(ME); sessionGeneration++; SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
+function loggedOut(message){ persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
 let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
 let MINE=null;            // my progress (source of truth on this device)
 let outbox=[];            // events waiting to send
@@ -797,18 +798,67 @@ function readTabRecovery(name){
 }
 function persistTabRecovery(name){
   if(!name)return;
+  const pending=!!dirty||outbox.length>0;
+  let tabSaved=false;
   try{
-    const pending=!!dirty||outbox.length>0, store=window.sessionStorage;
-    if(!store)return;
-    if(!pending){store.removeItem(tabRecoveryKey(name));return;}
-    store.setItem(tabRecoveryKey(name),JSON.stringify({version:1,actor:name,mine:MINE&&key(MINE.name)===key(name)?JSON.parse(JSON.stringify(MINE)):null,outbox:JSON.parse(JSON.stringify(outbox)),dirty:!!dirty}));
+    const store=window.sessionStorage;
+    if(store){
+      if(!pending) store.removeItem(tabRecoveryKey(name));
+      else { store.setItem(tabRecoveryKey(name),JSON.stringify({version:1,actor:name,mine:MINE&&key(MINE.name)===key(name)?JSON.parse(JSON.stringify(MINE)):null,outbox:JSON.parse(JSON.stringify(outbox)),dirty:!!dirty})); tabSaved=true; }
+    }
   }catch(e){}
+  // The existing shared cache is a fallback if the isolated tab copy is unavailable.
+  let sharedSaved=false;
+  if(pending&&!tabSaved){
+    try{
+      const queueSaved=ls.set("tg-outbox-"+key(name),JSON.stringify(outbox))===true;
+      const mineSaved=!dirty||(MINE&&key(MINE.name)===key(name)&&ls.set("tg-mine-"+key(name),JSON.stringify(MINE))===true&&ls.set("tg-pending-"+key(name),"1")===true);
+      sharedSaved=!!(queueSaved&&mineSaved);
+    }catch(e){}
+  }
+  const warning=$("#recoveryWarning"); if(warning) warning.hidden=!pending||tabSaved||sharedSaved;
 }
 const saveOutbox=()=>{ls.set("tg-outbox-"+key(ME),JSON.stringify(outbox));persistTabRecovery(ME);};
 const loadOutbox=()=>{try{outbox=JSON.parse(ls.get("tg-outbox-"+key(ME))||"[]");}catch(e){outbox=[];}};
 
-async function pull(){
+// One foreground clock owns polling and durable-queue retries for this session.
+let pullFlight=null, recoveryTimer=null, retryUntil=0, retryCount=0, retryRateLimited=false, recoveryStopped=false;
+function foreground(){ return (typeof document==="undefined"||!document.hidden)&&(typeof navigator==="undefined"||navigator.onLine!==false); }
+function resetRecovery(){ clearTimeout(recoveryTimer); recoveryTimer=null; retryUntil=0; retryCount=0; retryRateLimited=false; recoveryStopped=false; saving=false; }
+function transientFailure(e){ return e&&(e.message==="offline"||e.message==="429"||/^5\d\d$/.test(e.message)); }
+function recoveryFailure(e){
+  if(transientFailure(e)){
+    retryCount++; if(e.message==="429") retryRateLimited=true; const floor=e.message==="429"?30000:0;
+    const delay=Math.min(60000,Math.max(floor,Math.round(8000*Math.pow(2,Math.min(retryCount-1,4))*(.8+Math.random()*.4))));
+    retryUntil=Math.max(retryUntil,Date.now()+delay);
+  }else if(e&&(e.message==="401"||e.code==="actor_mismatch"||e.code==="update_required")) recoveryStopped=true;
+}
+function recoverySuccess(){ retryCount=0; retryUntil=0; retryRateLimited=false; }
+function scheduleRecovery(delay){
+  clearTimeout(recoveryTimer); recoveryTimer=null;
+  if(!ME||!foreground()||recoveryStopped) return;
   const generation=sessionGeneration, actor=ME;
+  const wait=Math.max(delay||0,retryUntil-Date.now());
+  recoveryTimer=setTimeout(async()=>{
+    recoveryTimer=null;
+    if(generation!==sessionGeneration||actor!==ME||!foreground()||recoveryStopped) return;
+    try{ await pull();
+      if(generation!==sessionGeneration||actor!==ME) return;
+      if(typeof SETUP!=="undefined"&&SETUP) setupStatus(); else if($("#scrim").hidden) render();
+      if(dirty||outbox.length) await flush();
+    }catch(e){}
+    if(generation===sessionGeneration&&actor===ME) scheduleRecovery(typeof SETUP!=="undefined"&&SETUP?8000:(GAS?20000:15000));
+  },wait);
+}
+function pull(){
+  const generation=sessionGeneration, actor=ME;
+  if(pullFlight&&pullFlight.generation===generation&&pullFlight.actor===actor) return pullFlight.promise;
+  if(!foreground()||recoveryStopped||(retryRateLimited&&Date.now()<retryUntil)) return Promise.reject(new Error("offline"));
+  const flight={generation,actor}, attempt=retryCount;
+  flight.promise=pullData(generation,actor).then(value=>{if(generation===sessionGeneration&&actor===ME&&retryCount===attempt) recoverySuccess(); return value;},e=>{if(generation===sessionGeneration&&actor===ME) recoveryFailure(e); throw e;}).finally(()=>{if(pullFlight===flight) pullFlight=null;});
+  pullFlight=flight; return flight.promise;
+}
+async function pullData(generation,actor){
   const have={}; Object.entries(LIVE.sync||{}).forEach(([k,a])=>a.forEach(r=>{ have[k+"|"+r.hh]=r.at; }));
   Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ have["fam|"+k]=f.at; });
   const d=await api("live",{have});
@@ -848,8 +898,8 @@ function pruneQueuedTick(n,i){
   if(removed.size){ LIVE.feed=LIVE.feed.filter(e=>!removed.has(e.id)); saveOutbox(); }
 }
 async function flush(){
-  if(saving||!ME||progressConflict) return; saving=true;
-  const generation=sessionGeneration, actor=ME, queue=outbox;
+  if(saving||!ME||progressConflict||!foreground()||recoveryStopped||Date.now()<retryUntil) return;
+  const generation=sessionGeneration, actor=ME, queue=outbox, flight={}, attempt=retryCount; saving=flight;
   const current=()=>generation===sessionGeneration&&actor===ME&&queue===outbox;
   try{
     if(dirty&&MINE){
@@ -878,7 +928,9 @@ async function flush(){
       if(queue[0]===e) queue.shift();
       saveOutbox();
     }
+    if(current()&&retryCount===attempt) recoverySuccess();
   }catch(e){
+    if(current()) recoveryFailure(e);
     if(current()&&e.code==="progress_conflict"&&e.data&&e.data.progress&&key(e.data.progress.name)===key(actor)){
       progressConflict={actor,generation,server:JSON.parse(JSON.stringify(e.data.progress))};
       persistTabRecovery(actor);
@@ -886,7 +938,7 @@ async function flush(){
     }else if(current()&&(e.code==="actor_mismatch"||e.code==="update_required"))toast("Your changes are paused. Reload the app and choose your name again.",true);
     // Offline errors retain the pending copy and queue for a later retry.
   }
-  finally{ saving=false; }
+  finally{ if(saving===flight) saving=false; if(current()&&(dirty||outbox.length)) scheduleRecovery(8000); }
 }
 function showProgressConflict(){
   if(!progressConflict||!MINE)return;
@@ -919,7 +971,6 @@ function resolveProgressConflict(keepLocal){
   }
   persistTabRecovery(ME);render();flush();
 }
-setInterval(()=>{ if(dirty||outbox.length) flush(); },8000);
 function emit(type,gen,text,meta){ if(!ME) return null; const e=Object.assign({id:uid(),at:Date.now(),who:ME,type,gen,text},meta||{}); outbox.push(e); saveOutbox(); LIVE.feed.push(e); flush(); return e; }
 
 /* ---------- tabs / routing ---------- */
@@ -1424,16 +1475,16 @@ function setupScreen(switched){
       h("button",{class:"btn ghost sm",type:"button",style:"justify-self:center",onclick:()=>{ls.set("tg-skip-"+key(ME),"1");leaveSetup();}},"Skip for now")));
   setupStatus();
 }
-function leaveSetup(){ SETUP=false; $("#gate").hidden=true; $("#tabs").hidden=false; show(MINE?TAB:"me"); }
+function leaveSetup(){ SETUP=false; scheduleRecovery(GAS?20000:15000); $("#gate").hidden=true; $("#tabs").hidden=false; show(MINE?TAB:"me"); }
 function gameSeen(){ return !!((LIVE.mine&&LIVE.mine.at)||syncLatest(ME)); }
-function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gameSeen();
-  el.textContent=on?"✓ Your game is connected! You're all set.":"⏳ Waiting for your game… (this turns green when The Sims 4 is running)";
+function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gameSeen(), contact=LIVE.mine&&LIVE.mine.at, latest=syncLatest(ME);
+  el.textContent=on?[contact?`Last server contact ${ago(contact)}`:"No server contact recorded",latest?`Last changed game save ${ago(latest.at)}`:"No changed game save recorded"].join(" · "):"⏳ Waiting for the first server contact or game save.";
   el.classList.toggle("ok",on);
   if(on&&!$("#setupGo")) el.after(h("button",{class:"btn go big",type:"button",id:"setupGo",onclick:leaveSetup},"Go to my legacy →")); }
 async function enter(name,fresh,switched){
-  persistTabRecovery(ME);sessionGeneration++; clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
+  persistTabRecovery(ME);sessionGeneration++; resetRecovery(); clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
   const generation=sessionGeneration;
-  ME=name; ls.set("tg-last",ME); MINE=null;
+  ME=name; ls.set("tg-last",ME); MINE=null; scheduleRecovery(GAS?20000:15000);
   const recovery=readTabRecovery(ME);
   if(recovery){
     MINE=recovery.mine&&key(recovery.mine.name)===key(ME)?recovery.mine:null;
@@ -1451,7 +1502,7 @@ async function enter(name,fresh,switched){
   try{ await pull(); }catch(e){}
   if(generation!==sessionGeneration||key(ME)!==key(name)) return;
   if(dirty) flush();
-  if(LIVE.syncOn&&(switched||(!gameSeen()&&(fresh||!ls.get("tg-skip-"+key(ME)))))){ if(GO) clearGo(); setupScreen(switched); return; }
+  if(LIVE.syncOn&&(switched||(!gameSeen()&&(fresh||!ls.get("tg-skip-"+key(ME)))))){ if(GO) clearGo(); setupScreen(switched); scheduleRecovery(8000); return; }
   show(MINE?TAB:"me");
   if(GO) goInstall();
 }
@@ -1482,9 +1533,9 @@ $("#postBtn").addEventListener("click",()=>{const t=$("#post").value.trim();if(!
   MINE.status={text:t,at:Date.now()};saveMine();emit("post",cur(),t);$("#post").value="";render();});
 
 /* live refresh */
-setInterval(async()=>{ if(!ME||document.hidden) return; try{ await pull(); if(SETUP) setupStatus(); else if($("#scrim").hidden) render(); }catch(e){} },GAS?20000:15000);
-setInterval(async()=>{ if(!SETUP||!ME||document.hidden) return; try{ await pull(); setupStatus(); }catch(e){} },8000);   // faster while she installs
-document.addEventListener("visibilitychange",async()=>{ if(!document.hidden&&ME){ try{await pull();render();}catch(e){} } });
+document.addEventListener("visibilitychange",()=>{ if(document.hidden) { clearTimeout(recoveryTimer); recoveryTimer=null; } else scheduleRecovery(0); });
+window.addEventListener("offline",()=>{ clearTimeout(recoveryTimer); recoveryTimer=null; });
+window.addEventListener("online",()=>scheduleRecovery(0));
 
 (async()=>{
   // Already logged in on this device? Then go straight in, even from an old first-time link or a bookmark of it.
