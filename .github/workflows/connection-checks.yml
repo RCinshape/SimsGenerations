@@ -1,0 +1,35 @@
+name: Connection checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connection-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: |
+          node --version
+          npm ci --ignore-scripts
+      - name: Run JavaScript and installer status tests
+        run: npm test
+      - name: Run helper inbox tests with Windows PowerShell
+        shell: powershell
+        run: ./tests/helper-inbox.test.ps1
+      - name: Run helper recovery tests with Windows PowerShell
+        shell: powershell
+        run: ./tests/helper-recovery.test.ps1

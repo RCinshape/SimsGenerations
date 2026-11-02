@@ -34,13 +34,35 @@ function Find-SimsFolder {
     return $null
 }
 # ---- signed self-update: new mod parts (+ this script). Nothing is installed unless the signature is right. ----
+function Get-PendingUpdate($cfg) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $req = '{"n":' + ($cfg.n | ConvertTo-Json -Compress) + ',"k":' + ($cfg.k | ConvertTo-Json -Compress) + ',"want":"update"}'
+    return Invoke-RestMethod -Method Post -Uri $cfg.u -Body ($Utf8.GetBytes($req)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 60
+}
+function Handle-Unchanged($cfg, $sims, $st, [string]$hash, [int]$logCount) {
+    $bundle = if ($st -and $st.bundle) { [int]$st.bundle } else { 0 }
+    $installed = $false
+    if ($sims -and (Test-Path -LiteralPath $sims)) {
+        try {
+            $r = Get-PendingUpdate $cfg
+            if ($r.update -and [int]$r.update.v -gt $bundle) {
+                $v = [int]$r.update.v
+                if (Try-Update $v $cfg $sims $st $r.update) { $bundle = $v; $installed = $true }
+            }
+        } catch { Log ("ERRO update failed: " + $_.Exception.Message) }
+    }
+    if ($installed -or ($st -and [int]$st.lines -ne $logCount)) {
+        [IO.File]::WriteAllText($State, ('{"hash":' + ($hash | ConvertTo-Json -Compress) + ',"lines":' + $logCount + ',"bundle":' + $bundle + ',"at":"' + (Get-Date).ToString('s') + '"}'), $Utf8)
+    }
+}
 function Hex-Bytes([string]$h) { $b = New-Object byte[] ($h.Length / 2); for ($i = 0; $i -lt $b.Length; $i++) { $b[$i] = [Convert]::ToByte($h.Substring($i * 2, 2), 16) }; return ,$b }
-function Try-Update([int]$v, $cfg, $sims, $st) {
+function Try-Update([int]$v, $cfg, $sims, $st, $b = $null) {
     if ($PubN.StartsWith('__')) { return $false }
     if ($st -and $st.bundle -and [int]$st.bundle -ge $v) { return $false }
-    $req = '{"n":' + ($cfg.n | ConvertTo-Json -Compress) + ',"k":' + ($cfg.k | ConvertTo-Json -Compress) + ',"want":"update"}'
-    $r = Invoke-RestMethod -Method Post -Uri $cfg.u -Body ($Utf8.GetBytes($req)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 90
-    $b = $r.update
+    if (-not $b) {
+        $r = Get-PendingUpdate $cfg
+        $b = $r.update
+    }
     if (-not $b -or [int]$b.v -ne $v) { Log "update v$v is not there"; return $false }
     $names = [string[]]@($b.files.PSObject.Properties.Name); [Array]::Sort($names, [StringComparer]::Ordinal)
     $sha = [System.Security.Cryptography.SHA256]::Create(); $text = "TGUPD1`n$v`n"; $files = @{}
@@ -201,8 +223,8 @@ try {
     $sha = [System.Security.Cryptography.SHA256]::Create()
     $hash = [Convert]::ToBase64String($sha.ComputeHash($Utf8.GetBytes($text + '|' + $meta + '|' + $logMark))); $sha.Dispose()
     $last = if ($st) { $st.hash } else { $null }
-    if ($last -eq $hash) {             # nothing changed: only remember how far the log was read
-        if ($st -and [int]$st.lines -ne $logCount) { [IO.File]::WriteAllText($State, ('{"hash":' + ($hash | ConvertTo-Json -Compress) + ',"lines":' + $logCount + ',"bundle":' + [int]$st.bundle + ',"at":"' + (Get-Date).ToString('s') + '"}'), $Utf8) }
+    if ($last -eq $hash) {
+        Handle-Unchanged $cfg $sims $st $hash $logCount
         exit 0
     }
 
