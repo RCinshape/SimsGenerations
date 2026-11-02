@@ -31,8 +31,8 @@ function Invoke-RestMethod {
     return [pscustomobject]@{ update=$script:pending }
 }
 try {
-    $rsa = [System.Security.Cryptography.RSA]::Create()
-    $rsa.KeySize = 2048
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider 2048
+    $rsa.PersistKeyInCsp = $false
     $PubN = ([BitConverter]::ToString($rsa.ExportParameters($false).Modulus) -replace '-', '').ToLowerInvariant()
     $parts = [ordered]@{ 'twentygen_net.pyc'=[Convert]::ToBase64String($Utf8.GetBytes('new net')); 'twentygen_sync.pyc'=[Convert]::ToBase64String($Utf8.GetBytes('new sync')) }
     $sha = [Security.Cryptography.SHA256]::Create()
@@ -60,8 +60,19 @@ try {
     Assert ($before -eq [Convert]::ToBase64String([IO.File]::ReadAllBytes($target))) 'bad signature changed archive'
     Assert ((Get-Content $State -Raw | ConvertFrom-Json).bundle -eq 7) 'bad signature advanced bundle'
     $script:pending.sig = $sig
+    # A signed bundle cannot be relabeled, omit a required part, or add a forbidden file.
+    $script:pending.v = 9
     Handle-Unchanged $cfg $sims $st 'same' 0
-    Assert ($script:requests.Count -eq 3) 'failed update did not retry on unchanged content'
+    $script:pending.v = 8
+    $script:pending.files = [pscustomobject]@{ 'twentygen_sync.pyc'=$parts['twentygen_sync.pyc'] }
+    Handle-Unchanged $cfg $sims $st 'same' 0
+    $script:pending.files = [pscustomobject]@{ 'twentygen_net.pyc'=$parts['twentygen_net.pyc']; 'twentygen_sync.pyc'=$parts['twentygen_sync.pyc']; 'config.json'='e30=' }
+    Handle-Unchanged $cfg $sims $st 'same' 0
+    Assert ($before -eq [Convert]::ToBase64String([IO.File]::ReadAllBytes($target))) 'invalid bundle changed archive'
+    Assert ((Get-Content $State -Raw | ConvertFrom-Json).bundle -eq 7) 'invalid bundle advanced bundle'
+    $script:pending.files = [pscustomobject]$parts
+    Handle-Unchanged $cfg $sims $st 'same' 0
+    Assert ($script:requests.Count -eq 6) 'failed update did not retry on unchanged content'
     Assert ((Get-Content $State -Raw | ConvertFrom-Json).bundle -eq 8) 'verified update was not recorded'
     $zip = [IO.Compression.ZipFile]::OpenRead($target)
     try {
@@ -74,6 +85,6 @@ try {
     $st = Get-Content $State -Raw | ConvertFrom-Json
     Handle-Unchanged $cfg $sims $st 'same' 0
     Assert ($after -eq [Convert]::ToBase64String([IO.File]::ReadAllBytes($target))) 'already installed bundle swapped archive'
-    Assert ($script:requests.Count -eq 4) 'already installed check made extra requests'
+    Assert ($script:requests.Count -eq 7) 'already installed check made extra requests'
     Write-Host 'helper recovery tests passed'
-} finally { Remove-Item -LiteralPath $Home2 -Recurse -Force -ErrorAction SilentlyContinue }
+} finally { if ($rsa) { $rsa.PersistKeyInCsp = $false; $rsa.Dispose() }; Remove-Item -LiteralPath $Home2 -Recurse -Force -ErrorAction SilentlyContinue }
