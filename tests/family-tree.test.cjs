@@ -4,6 +4,17 @@ const {JSDOM}=require('jsdom');
 const {html}=require('./create-debug-fixture.cjs');
 async function load(t){const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};Object.defineProperties(w.HTMLElement.prototype,{clientWidth:{configurable:true,get(){return this.classList.contains('fx-stage')?800:0;}},clientHeight:{configurable:true,get(){return this.classList.contains('fx-stage')?500:0;}}});}});t.after(()=>dom.window.close());for(let i=0;i<100&&!dom.window.document.querySelector('.pcard');i++)await new Promise(r=>setTimeout(r,10));return dom.window;}
 const graph=`({a:{id:'a',first:'Same',last:'Name',children:['c'],partners:['b','d']},b:{id:'b',first:'Same',last:'Name',children:['c']},c:{id:'c',first:'Child',parents:['a','b','missing']},d:{id:'d',first:'Other'},isolated:{id:'isolated',first:'Disconnected'}})`;
+test('an unstarted player card opens shared family data without creating progress or writes',async t=>{
+ const w=await load(t),d=w.document;
+ w.eval(`delete LIVE.progress['qa-beta'];LIVE.fam['qa-beta']={sims:{b:{f:'Other',l:'Founder'}}};window.calls=[];api=async(path,body)=>{window.calls.push({path,body});return path==='portrait'?{portraits:[]}:{ok:true};};renderHood();`);
+ const card=[...d.querySelectorAll('.pcard')].find(el=>el.textContent.includes('qa-beta'));
+ assert.match(card.textContent,/hasn't started/i);card.click();
+ const sheet=d.querySelector('.sheet');assert.equal(sheet.getAttribute('aria-label'),'qa-beta');assert.match(sheet.textContent,/hasn't started the challenge/i);assert.match(sheet.textContent,/Game data contains 1 sim\./);assert.doesNotMatch(sheet.textContent,/Gen 1|Playing/);
+ [...sheet.querySelectorAll('button')].find(b=>b.textContent==='Explore family tree').click();await new Promise(r=>setTimeout(r,0));
+ d.querySelector('.fx-node').click();assert.match(d.querySelector('.fx-drawer').textContent,/Other Founder/);assert.equal(d.querySelector('.fx-drawer input[type=file]'),null);assert.equal(w.eval("prog('qa-beta')"),null);
+ assert.ok(w.calls.some(c=>c.path==='portrait'&&c.body.owner==='qa-beta'));
+ assert.ok(w.calls.every(c=>c.path==='portrait'&&['list','get'].includes(c.body.action)),JSON.stringify(w.calls));
+});
 test('fit contains wide and deep families and keeps the overview while zooming',async t=>{
  const w=await load(t),d=w.document;
  for(const shape of ['wide','deep']){

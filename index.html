@@ -1351,7 +1351,7 @@ function familyPanel(name,title){
   if(!Object.keys(S).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
   const p=prog(name), {line,cur}=heirLine(name,S);
   if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),
-    h("div",{class:"pb"},h("p",{class:"muted",text:"The tree starts when the game knows your founder. Pick your founder from your game on the My legacy tab, then save the game once."}),launch));
+    h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family explorer to browse their relationships.`}),launch));
   const gens=[];
   const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
   const root=S[line[first]], roots=(root&&root.parents||[]).map(i=>S[i]).filter(Boolean);
@@ -1472,7 +1472,11 @@ function openGen(n){
 }
 function openPlayer(name){
   const p=prog(name);
-  if(!p){toast(`${name} hasn't started yet`);return;}
+  if(!p){
+    openSheet({c:pcolor(name),e:"🌳",title:"Family and household",tag:"This player hasn't started the challenge yet.",traits:[]},
+      h("div",{class:"sbody"},familyPanel(name),gamePanel(name,`🎮 ${name}'s household now`)),name);
+    return;
+  }
   const g=G(Math.min(p.current||1,20));
   const finished=Object.entries(p.gens||{}).filter(([,s])=>s.done);
   const avg=finished.length?(finished.reduce((a,[,s])=>a+(s.rating||0),0)/finished.length).toFixed(1):"–";
