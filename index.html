@@ -188,6 +188,20 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 .ft .kid.next{box-shadow:inset 0 0 0 2px var(--gold);background:#fff6d6}
 .ft .ok{color:var(--green2)}.ft .gap{color:var(--muted);font-size:14px}
 .ft .roots{font-size:13px;color:var(--muted);padding:4px 0 2px 54px}
+/* Compact only the family panel; keep its generation button at a 44px target. */
+.compact-family .ph{padding:6px 10px}
+.compact-family .ph h2{font-size:15px}
+.compact-family .pb{padding:4px 10px;gap:4px}
+.compact-family .ft{padding:0 10px 4px}
+.compact-family .ft .gen{padding:3px 0 3px 52px}
+.compact-family .ft .gen:not(:last-child)::after{top:47px;bottom:-3px}
+.compact-family .ft .badge{top:3px}
+.compact-family .ft .sim{padding:2px 7px;font-size:14px;line-height:1.35}
+.compact-family .ft .sim.heir{margin-top:0}
+.compact-family .ft .kids{margin-top:3px;gap:4px}
+.compact-family .ft .kid{padding:1px 6px}
+.compact-family .ft .roots{padding:1px 0 1px 52px}
+
 .stars{color:var(--gold);letter-spacing:1px;white-space:nowrap}
 
 /* plan */
@@ -345,6 +359,8 @@ html[data-theme=dark] .must{background:#3b3216;color:#ffe9a8}
 html[data-theme=dark] .setstat{background:#1c3349}
 html[data-theme=dark] .net{background:#3a1a15;color:#ff9c8c}
 html[data-theme=dark] a{color:#8cc4f5}
+
+.fx{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:#eaf5fb;color:#17324d;color-scheme:light}.fx-head select{color:inherit}html[data-theme=dark] .fx a{color:#145c93}.fx-head{display:flex;align-items:center;gap:8px;padding:10px;flex-wrap:wrap;background:#fff;border-bottom:2px solid #d6e6f3}.fx-head strong{margin-right:auto}.fx-head select,.fx-button{border:1px solid #b7d1e5;border-radius:10px;background:#fff;padding:7px 10px;font-weight:800}.fx-note{font-size:13px;color:#557089;padding:5px 12px}.fx-stage{position:relative;overflow:hidden;flex:1;min-height:180px;touch-action:none;background:radial-gradient(circle at center,#eef9ff,#cfe9f6);cursor:grab}.fx-world{position:absolute;left:0;top:0;transform-origin:0 0}.fx-world svg{position:absolute;inset:0;overflow:visible;pointer-events:none}.fx-world path{fill:none;stroke:#85aabd;stroke-width:3}.fx-world path.partner{stroke:#d995a8;stroke-dasharray:5 4}.fx-node{position:absolute;width:130px;min-height:130px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;font-size:13px;line-height:1.15;overflow-wrap:anywhere}.fx-node b{background:#fff;border-radius:8px;padding:3px 5px;max-width:130px}.fx-node small{background:#fff;border-radius:8px;padding:2px 5px}.fx-portrait{width:88px;height:88px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,#6dc4ef,#2a83bd);color:white;border:4px solid white;box-shadow:0 3px 8px #7699aa;font-size:28px;font-weight:900;overflow:hidden}.fx-portrait img{width:100%;height:100%;object-fit:cover}.fx-node.missing .fx-portrait{background:#9daeb8}.fx-drawer{position:absolute;right:12px;top:76px;bottom:60px;overflow:auto;width:min(340px,calc(100% - 24px));padding:16px;border-radius:16px;background:#fff;box-shadow:0 6px 24px #43677b66;display:flex;flex-direction:column;gap:10px}.fx-drawer input{max-width:100%}.fx-access{background:#fff;padding:8px 12px;max-height:30vh;overflow:auto}.fx-list{display:flex;flex-wrap:wrap;gap:6px}.fx-list-item{background:#eaf5fb;border-radius:8px;padding:6px}.fx-access summary{cursor:pointer;font-weight:900}@media(max-width:600px){.fx-head strong{width:calc(100% - 95px)}.fx-head{gap:5px}.fx-head .fx-button{padding:5px 8px}.fx-drawer{top:105px;bottom:55px}}
 </style>
 </head>
 <body>
@@ -750,7 +766,7 @@ const kidsText=g=>g.noKidRule?"3+ (see goals)":g.kids?`${g.kids} needed`:"1 or 2
 /* ---------- session ownership: another tab must not change this tab's actor ---------- */
 let SESSION_TOKEN=ls.get("tg-token")||"", sessionGeneration=0;
 function sessionChanged(){ const e=new Error("session_changed"); e.code="session_changed"; return e; }
-function setSessionToken(token){ token=token||""; if(token!==SESSION_TOKEN) sessionGeneration++; SESSION_TOKEN=token; if(SESSION_TOKEN) ls.set("tg-token",SESSION_TOKEN); else ls.del("tg-token"); }
+function setSessionToken(token){ token=token||""; if(token!==SESSION_TOKEN) { sessionGeneration++; if(typeof dismissLinkedTree==="function")dismissLinkedTree(); } SESSION_TOKEN=token; if(SESSION_TOKEN) ls.set("tg-token",SESSION_TOKEN); else ls.del("tg-token"); }
 window.addEventListener("storage",e=>{ if(GAS&&(e.key===ls.key("tg-token")||e.key===null)&&(ls.get("tg-token")||"")!==SESSION_TOKEN) loggedOut("Your account changed in another tab. Choose your name again."); });
 async function webCall(path,body,token){
   if(!GID) throw new Error("nolink");
@@ -785,7 +801,7 @@ async function api(path,body){
   if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; err.data=data; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
   return data;
 }
-function loggedOut(message){ persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
+function loggedOut(message){ if(typeof dismissLinkedTree==="function")dismissLinkedTree(); if(typeof dismissFamilyExplorer==="function")dismissFamilyExplorer(); persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
 let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
 let MINE=null;            // my progress (source of truth on this device)
 let outbox=[];            // events waiting to send
@@ -1057,7 +1073,7 @@ function renderVotes(){
   const os=[1,2,3,4].map(i=>h("input",{maxlength:"60",placeholder:`Option ${i}`+(i>2?" (optional)":"")}));
   box.append(h("div",{class:"votef"},h("b",{text:"Start a vote"}),h("label",{class:"muted small",text:"About whose heir?"}),who,q,...os,
     h("button",{class:"btn go",type:"button",onclick:async()=>{const opts=os.map(x=>x.value.trim()).filter(Boolean);if(q.value.trim().length<3||opts.length<2){toast("Write a question and at least 2 options",true);return;}
-      try{await api("vote_new",{target:who.value,q:q.value.trim(),opts});toast("Vote started 🗳️");await pull();render();}catch(e){toast(e.code==="too_many_votes"?"You have 3 open votes already":"Couldn't start the vote",true);}}},"Start the vote (24 hours)")));
+      try{await api("vote_new",{target:who.value,q:q.value.trim(),opts});toast("Vote started 🗳️");await pull();render();}catch(e){toast(e.code==="too_many_votes"?"You have 3 open votes already":"Couldn't start the vote",true);}}},"Start the vote (6 hours)")));
 }
 /* ---------- chaos ---------- */
 function renderChaos(){
@@ -1239,13 +1255,119 @@ const AGE_ORDER=["ELDER","ADULT","YOUNGADULT","TEEN","CHILD","TODDLER","INFANT",
 function simName(x){ return `${x.first||""} ${x.last||""}`.trim()||"(no name)"; }
 function simCard(x,cls,extra){ return h("span",{class:"sim "+(cls||"")+(x.dead?" dead":"")},h("b",{text:(x.dead?"🪦 ":"")+simName(x)}),
   h("span",{text:[extra,AGE[x.age]||"",...(x.occ||[]).map(o=>OCC[o]||o)].filter(Boolean).join(" · ")||" "})); }
+/* Family relationships use their own graph, independent of challenge generations. */
+function familyGraph(source){
+  const allIds=Object.keys(source).sort(), ids=allIds.slice(0,500), nodes={}, edges=[], seen=new Set();
+  ids.forEach(id=>{nodes[id]={...source[id],id:String(id),missing:false};});
+  let selfCycle=false, rankLimited=false;
+  const add=(a,b,type)=>{a=String(a||'');b=String(b||'');if(!a||!b)return;if(a===b){if(type==='parent')selfCycle=true;return;}if((!nodes[a]||!nodes[b])&&Object.keys(nodes).length>=1000)return;if(!nodes[a])nodes[a]=source[a]?{...source[a],id:a,omitted:true}:{id:a,missing:true,parents:[],children:[],partners:[]};if(!nodes[b])nodes[b]=source[b]?{...source[b],id:b,omitted:true}:{id:b,missing:true,parents:[],children:[],partners:[]};const k=type+':'+(type==='partner'?[a,b].sort().join(':'):a+':'+b);if(!seen.has(k)){seen.add(k);edges.push({a,b,type});}};
+  ids.forEach(id=>{const n=source[id];(n.parents||[]).forEach(p=>add(p,id,'parent'));(n.children||[]).forEach(c=>add(id,c,'parent'));(n.partners||[]).forEach(p=>add(id,p,'partner'));if(n.spouse)add(id,n.spouse,'partner');});
+  const keys=Object.keys(nodes).sort(), parents={};keys.forEach(id=>parents[id]=[]);edges.filter(e=>e.type==='parent').forEach(e=>parents[e.b].push(e.a));
+  let cyclic=selfCycle;const visiting=new Set(),depth={};
+  function rank(id){if(depth[id]!=null)return depth[id];if(visiting.has(id)){cyclic=true;return 0;}visiting.add(id);let d=0;parents[id].sort().forEach(p=>{const next=rank(p)+1;if(next>20)rankLimited=true;d=Math.max(d,Math.min(20,next));});visiting.delete(id);return depth[id]=d;}
+  keys.forEach(rank);
+  // Move partners together when doing so does not hide their own parentage.
+  const levels={};keys.forEach(id=>(levels[depth[id]]||(levels[depth[id]]=[])).push(id));
+  for(const list of Object.values(levels)){const remaining=new Set(list), ordered=[];for(const id of list){if(!remaining.delete(id))continue;ordered.push(id);edges.filter(e=>e.type==='partner'&&(e.a===id||e.b===id)).forEach(e=>{const other=e.a===id?e.b:e.a;if(remaining.delete(other))ordered.push(other);});}list.splice(0,list.length,...ordered);}
+  const maxCols=Math.max(1,...Object.values(levels).map(a=>a.length));
+  Object.entries(levels).forEach(([level,list])=>list.forEach((id,i)=>{nodes[id].x=70+(maxCols-list.length)*100+i*200;nodes[id].y=45+Number(level)*180;}));
+  return {nodes,edges,cyclic,rankLimited,truncated:allIds.length>ids.length||Object.keys(nodes).length>=1000,width:Math.max(400,maxCols*200+60),height:Math.max(250,(Math.max(0,...Object.keys(levels).map(Number))+1)*180+50)};
+}
+let familyEpoch=0;
+const familyPhotoVersions=new Map(), familyPhotoWrites=new Set(), familyReadHistory=new Map(), familyPortraitCache=new Map();
+function dismissFamilyExplorer(){familyEpoch++;const explorer=document.querySelector('#family-explorer');explorer?._dispose?.();explorer?.remove();}
+function openFamilyExplorer(initialOwner){
+  const opener=document.activeElement;const oldExplorer=document.querySelector('#family-explorer');oldExplorer?._dispose?.();oldExplorer?.remove();const epoch=++familyEpoch, actor=ME, session=sessionGeneration, deployment=GID;
+  let owner=initialOwner,graph,scale=1,tx=0,ty=0,selected=null,photoJobs=[],active=0,portraitStatus='', buildEpoch=0,available=new Set(),requested=new Set(),pendingGets=new Set(),viewportBudget=40,photoPaused=false,readTimer=null,listPage=0;
+  const current=()=>epoch===familyEpoch&&actor===ME&&session===sessionGeneration&&deployment===GID&&document.body.contains(shell);
+  const shell=h('div',{id:'family-explorer',class:'fx',role:'dialog','aria-modal':'true','aria-label':'Family explorer'});
+  const header=h('div',{class:'fx-head'}),stage=h('div',{class:'fx-stage',tabindex:'0','aria-label':'Family tree canvas. Use arrow keys to pan, plus and minus to zoom.'}), world=h('div',{class:'fx-world'}), drawer=h('aside',{class:'fx-drawer',hidden:true}), list=h('div',{class:'fx-list'}), note=h('p',{class:'fx-note'}),photoNote=h('p',{class:'fx-note',role:'status'});
+  const onVisibility=()=>{if(!document.hidden&&current())runPhotoJobs();};document.addEventListener('visibilitychange',onVisibility);
+  shell._dispose=()=>{clearTimeout(readTimer);readTimer=null;document.removeEventListener('visibilitychange',onVisibility);};
+  const close=()=>{familyEpoch++;shell._dispose();shell.remove();if(opener&&opener.isConnected)opener.focus();};
+  const btn=(text,fn)=>h('button',{class:'fx-button',type:'button',onclick:fn},text);
+  const options=Array.from(new Set([owner,...(LIVE.roster||[]),ME].filter(Boolean)));
+  const select=h('select',{'aria-label':'Player',onchange:e=>{owner=e.target.value;selected=null;build();}},...options.map(n=>h('option',{value:n,...(n===owner?{selected:true}:{})},n)));
+  header.append(btn('← Back',close),h('strong',{text:'Family explorer'}),select,btn('Linked tree',()=>openLinkedTree(owner)),btn('−',()=>zoom(.8)),btn('+',()=>zoom(1.25)),btn('Fit',fit),btn('Reset',()=>{scale=1;tx=20;ty=20;apply();}));
+  const filter=h('input',{type:'search',placeholder:'Filter family names','aria-label':'Filter family names',oninput:()=>{listPage=0;paintList();}});
+  shell.append(header,note,photoNote,stage,drawer,h('details',{class:'fx-access'},h('summary',{},'Family list (keyboard accessible)'),filter,list));stage.append(world);document.body.append(shell);
+  function apply(){world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;viewportBudget=40;schedulePhotos();}
+  function zoom(f,x=stage.clientWidth/2,y=stage.clientHeight/2){const next=Math.min(2.5,Math.max(.0001,scale*f));tx=x-(x-tx)*next/scale;ty=y-(y-ty)*next/scale;scale=next;apply();}
+  function fit(){const width=stage.clientWidth||800,height=stage.clientHeight||500;scale=Math.max(.0001,Math.min(1.4,Math.max(1,width-40)/graph.width,Math.max(1,height-40)/graph.height));tx=(width-graph.width*scale)/2;ty=(height-graph.height*scale)/2;apply();}
+  stage.addEventListener('wheel',e=>{e.preventDefault();const r=stage.getBoundingClientRect();zoom(e.deltaY<0?1.12:1/1.12,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+  stage.addEventListener('keydown',e=>{if(e.target!==stage)return;const d=40;if(e.key==='ArrowLeft')tx+=d;else if(e.key==='ArrowRight')tx-=d;else if(e.key==='ArrowUp')ty+=d;else if(e.key==='ArrowDown')ty-=d;else if(e.key==='+'||e.key==='=')zoom(1.2);else if(e.key==='-')zoom(1/1.2);else return;e.preventDefault();apply();});
+  const pointers=new Map();let drag=null;
+  stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;stage.setPointerCapture?.(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});drag={x:e.clientX,y:e.clientY,tx,ty,dist:pointers.size===2?distance():0};});
+  function distance(){const a=[...pointers.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;}
+  stage.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const d=distance();if(drag&&drag.dist)zoom(d/drag.dist);drag={dist:d};}else if(drag&&drag.x!=null){tx=drag.tx+e.clientX-drag.x;ty=drag.ty+e.clientY-drag.y;apply();}});
+  const up=e=>{pointers.delete(e.pointerId);drag=null;};stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
+  function line(svg,a,b,type){const p=document.createElementNS('http://www.w3.org/2000/svg','path');let d;if(type==='partner'){const x=a.x+65,y=a.y+45,X=b.x+65,Y=b.y+45;d=`M ${x} ${y} H ${(x+X)/2} V ${Y} H ${X}`;}else{const x=a.x+65,y=a.y+92,X=b.x+65,Y=b.y,mid=(y+Y)/2;d=`M ${x} ${y} V ${mid} H ${X} V ${Y}`;}p.setAttribute('d',d);p.setAttribute('class',type);svg.append(p);}
+  function paint(){world.textContent='';list.textContent='';world.style.width=graph.width+'px';world.style.height=graph.height+'px';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width',graph.width);svg.setAttribute('height',graph.height);svg.setAttribute('aria-hidden','true');graph.edges.forEach(e=>line(svg,graph.nodes[e.a],graph.nodes[e.b],e.type));world.append(svg);
+    Object.values(graph.nodes).forEach(n=>{const label=n.missing?'Unknown relative':simName(n), initials=n.missing?'?':label.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase();const portrait=h('span',{class:'fx-portrait',text:initials});if(n.image){portrait.textContent='';portrait.append(h('img',{src:n.image,alt:''}));}const b=h('button',{class:'fx-node'+(n.missing?' missing':''),'data-sim-id':n.id,type:'button',tabindex:'-1',style:`left:${n.x}px;top:${n.y}px`,onclick:()=>detail(n.id)},portrait,h('b',{text:label}),h('small',{text:[n.missing?'Missing reference':n.omitted?'Outside shown records':AGE[n.age]||n.age,n.dead?'Deceased':''].filter(Boolean).join(' · ')}));world.append(b);});paintList();
+  }
+  function paintList(){list.textContent='';const term=filter.value.trim().toLowerCase(),matches=Object.values(graph.nodes).filter(n=>(n.missing?'unknown relative':simName(n).toLowerCase()).includes(term));const pages=Math.max(1,Math.ceil(matches.length/40));listPage=Math.min(listPage,pages-1);const names=new Map();matches.forEach(n=>{const name=n.missing?'Unknown relative':simName(n);names.set(name,(names.get(name)||0)+1);});matches.slice(listPage*40,listPage*40+40).forEach(n=>{const label=n.missing?'Unknown relative':simName(n);list.append(h('button',{type:'button',class:'fx-list-item',onclick:()=>detail(n.id)},label+(names.get(label)>1?' · '+n.id:'')));});if(pages>1){const prev=btn('Previous',()=>{listPage--;paintList();list.querySelector('.fx-list-item')?.focus();}),next=btn('Next',()=>{listPage++;paintList();list.querySelector('.fx-list-item')?.focus();});prev.dataset.page='previous';next.dataset.page='next';prev.disabled=listPage===0;next.disabled=listPage===pages-1;list.append(h('div',{class:'row'},prev,h('span',{text:'Page '+(listPage+1)+' of '+pages}),next));}}
+
+  function detail(id){const n=graph.nodes[id];if(!n)return;selected=id;drawer.hidden=false;drawer.textContent='';schedulePhotos(id);const rel=(refs)=>refs.map(i=>graph.nodes[String(i)]).filter(Boolean).map(v=>v.missing?'Unknown relative':simName(v)).join(', ')||'Not reported';
+    drawer.append(btn('Close details',()=>{drawer.hidden=true;selected=null;stage.focus();}),h('h2',{text:n.missing?'Unknown relative':simName(n)}),h('p',{text:n.missing?'This relative is referenced but has not been reported.':[AGE[n.age]||n.age,n.dead?'Deceased':''].filter(Boolean).join(' · ')}));
+    if(n.missing)return;if(n.omitted)drawer.append(h('p',{text:'This known sim is outside the expanded records; some relationships may not be shown.'}));drawer.append(h('p',{text:'Parents: '+rel(graph.edges.filter(e=>e.type==='parent'&&e.b===id).map(e=>e.a))}),h('p',{text:'Children: '+rel(graph.edges.filter(e=>e.type==='parent'&&e.a===id).map(e=>e.b))}),h('p',{text:'Known partners: '+rel(graph.edges.filter(e=>e.type==='partner'&&(e.a===id||e.b===id)).map(e=>e.a===id?e.b:e.a))}),h('p',{class:'fx-note',text:'Portraits are added manually; they are not extracted from the game.'}));
+    const msg=h('p',{class:'fx-note',text:portraitStatus});drawer.append(msg);
+    if(key(owner)===key(actor)&&!n.omitted){const input=h('input',{type:'file',accept:'image/jpeg,image/png,image/webp','aria-label':'Choose a manual portrait'});const upload=btn('Upload portrait',()=>writePortrait('put')), remove=btn('Remove portrait',()=>writePortrait('remove'));const photoKey=key(actor)+':'+id;upload.dataset.photoWrite=remove.dataset.photoWrite='';upload.disabled=remove.disabled=familyPhotoWrites.has(photoKey)||!validPhotoAt(n.photoAt);drawer.append(input,upload,remove);
+      async function writePortrait(action){if(familyPhotoWrites.has(photoKey)||!validPhotoAt(n.photoAt))return;const generation=buildEpoch,file=input.files&&input.files[0],ifAt=n.photoAt;if(action==='put'&&!file){msg.textContent='Choose a photo first.';return;}familyPhotoWrites.add(photoKey);upload.disabled=remove.disabled=true;familyPhotoVersions.set(photoKey,(familyPhotoVersions.get(photoKey)||0)+1);let sent=false,uncertain=false;try{const image=action==='put'?await preparePortrait(file):null;if(!current()||generation!==buildEpoch||key(owner)!==key(actor)||selected!==id)return;msg.textContent='Saving…';sent=true;const result=await photoRequest(action==='put'?{action,owner:actor,simId:id,image,ifAt}:{action,owner:actor,simId:id,ifAt},generation,true);if(!current()||generation!==buildEpoch||key(owner)!==key(actor))return;n.photoAt=action==='remove'?0:(validPhotoAt(result.at)?result.at:null);if(image){n.image=image;if(validPhotoAt(n.photoAt))cachePhoto(id,n.photoAt,image);}else delete n.image;requested.add(id);paint();msg.textContent=n.photoAt===null?'Portrait saved; reload before another change.':image?'Portrait saved.':'Portrait removed.';}catch(e){uncertain=sent&&!['400','401','403','404','409','413','429','obsolete'].includes(e.message);if(current()&&generation===buildEpoch){if(e.message==='409'){n.photoAt=null;msg.textContent='Portrait changed on another device. Review it before trying again.';try{const latest=await photoRequest({action:'get',owner:actor,simId:id},generation,true);if(current()&&generation===buildEpoch&&validPhotoAt(latest.at)&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(latest.image||'')){n.photoAt=latest.at;n.image=latest.image;cachePhoto(id,latest.at,latest.image);paint();}else if(current()&&generation===buildEpoch)msg.textContent+=' Could not refresh; reload before trying again.';}catch(refreshError){if(current()&&generation===buildEpoch){if(refreshError.message==='404'){n.photoAt=0;delete n.image;paint();}else msg.textContent+=' Could not refresh; reload before trying again.';}}}else msg.textContent=uncertain?'The result may have saved. Reload before another photo change.':photoError(e,'save');}}finally{if(!uncertain)familyPhotoWrites.delete(photoKey);if(current()&&generation===buildEpoch&&!uncertain){upload.disabled=remove.disabled=!validPhotoAt(n.photoAt);}}}
+    }
+    drawer.querySelector('button')?.focus();
+  }
+  function validPhotoAt(at){return Number.isSafeInteger(at)&&at>=0;}
+  function syncPhotoButtons(){if(!selected||!graph.nodes[selected])return;const n=graph.nodes[selected],locked=familyPhotoWrites.has(key(actor)+':'+selected);drawer.querySelectorAll('[data-photo-write]').forEach(b=>{b.disabled=locked||!validPhotoAt(n.photoAt);});}
+  function photoError(e,action){if(e.message==='unsupported-image')return 'Choose a JPEG, PNG, or WebP image.';if(e.message==='image-too-large')return 'Could not make that image small enough.';if(e.message==='404')return action==='get'?'Portrait is no longer available.':'Photo support pending.';if(e.message==='429')return 'Photos are temporarily rate limited. Try again later.';if(e.message==='401'||e.message==='session_changed')return 'Your session changed. Log in again to use photos.';return action==='save'?'Could not save portrait. Check your connection and try again.':'Could not load photos. Check your connection and try again.';}
+  function photoRequest(body,generation,priority=false){return new Promise((resolve,reject)=>{const job={body,generation,resolve,reject};priority?photoJobs.unshift(job):photoJobs.push(job);runPhotoJobs();});}
+  function readKey(){return GID+':'+key(actor);}
+  function cacheKey(id,at){return readKey()+':'+session+':'+key(owner)+':'+id+':'+at;}
+  function cachePhoto(id,at,image){const k=cacheKey(id,at);familyPortraitCache.delete(k);familyPortraitCache.set(k,image);while(familyPortraitCache.size>150)familyPortraitCache.delete(familyPortraitCache.keys().next().value);}
+  function runPhotoJobs(){while(active<2&&photoJobs.length){const job=photoJobs[0];if(!current()||job.generation!==buildEpoch){photoJobs.shift();job.reject(new Error('obsolete'));continue;}const isRead=job.body.action==='list'||job.body.action==='get';if(isRead){const now=Date.now(),history=(familyReadHistory.get(readKey())||[]).filter(t=>t>now-300000);familyReadHistory.set(readKey(),history);if(history.length>=60){photoNote.textContent='Photo read limit reached. Photos will resume when the limit resets.';clearTimeout(readTimer);readTimer=setTimeout(()=>{readTimer=null;if(current()&&!document.hidden){photoNote.textContent='';runPhotoJobs();}},Math.max(1,history[0]+300000-now+1));return;}history.push(now);}photoJobs.shift();active++;api('portrait',job.body).then(job.resolve,job.reject).finally(()=>{active--;runPhotoJobs();});}}
+
+  function schedulePhotos(preferred){if(!graph||!available.size||!current()||photoPaused)return;if(preferred){const i=photoJobs.findIndex(j=>j.body.action==='get'&&j.body.simId===preferred);if(i>=0)photoJobs.unshift(photoJobs.splice(i,1)[0]);else if(available.has(preferred)&&!requested.has(preferred)&&pendingGets.size>=12){const j=photoJobs.findLastIndex(j=>j.body.action==='get');if(j>=0){const old=photoJobs.splice(j,1)[0];pendingGets.delete(old.body.simId);requested.delete(old.body.simId);old.reject(new Error('obsolete'));}}}const candidates=Object.values(graph.nodes).filter(n=>!n.missing&&!n.omitted&&available.has(n.id)&&!requested.has(n.id)&&!pendingGets.has(n.id));candidates.sort((a,b)=>(b.id===preferred)-(a.id===preferred));for(const n of candidates){if(pendingGets.size>=12||(!viewportBudget&&n.id!==preferred))break;const visible=(n.x+130)*scale+tx>=-150&&n.x*scale+tx<=stage.clientWidth+150&&(n.y+130)*scale+ty>=-150&&n.y*scale+ty<=stage.clientHeight+150;if(!visible&&n.id!==preferred)continue;const id=n.id,generation=buildEpoch,requestedOwner=owner,pending=pendingGets,photoKey=key(owner)+':'+id,version=familyPhotoVersions.get(photoKey)||0;pendingGets.add(id);requested.add(id);if(n.id!==preferred)viewportBudget--;photoRequest({action:'get',owner:requestedOwner,simId:id},generation,id===preferred).then(r=>{if(current()&&owner===requestedOwner&&generation===buildEpoch&&version===(familyPhotoVersions.get(photoKey)||0)&&!familyPhotoWrites.has(photoKey)&&graph.nodes[id]&&validPhotoAt(r.at)&&(!validPhotoAt(graph.nodes[id].photoAt)||r.at>=graph.nodes[id].photoAt)&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(r.image||'')){graph.nodes[id].photoAt=r.at;graph.nodes[id].image=r.image;cachePhoto(id,r.at,r.image);syncPhotoButtons();const target=[...world.querySelectorAll('.fx-node')].find(e=>e.dataset.simId===id)?.querySelector('.fx-portrait');if(target){target.textContent='';target.append(h('img',{src:r.image,alt:''}));}}}).catch(e=>{if(current()&&generation===buildEpoch&&e.message!=='obsolete'){portraitStatus=photoError(e,'get');photoNote.textContent=portraitStatus;if(e.message==='429'){photoPaused=true;const skipped=photoJobs.filter(j=>j.body.action==='get');photoJobs=photoJobs.filter(j=>j.body.action!=='get');skipped.forEach(j=>j.reject(new Error('obsolete')));}}}).finally(()=>{pending.delete(id);if(current()&&generation===buildEpoch)schedulePhotos();});}}
+  async function loadPhotos(){const requestedOwner=owner,generation=buildEpoch;try{const r=await photoRequest({action:'list',owner:requestedOwner},generation);if(!current()||owner!==requestedOwner||generation!==buildEpoch)return;if(!r||!Array.isArray(r.portraits))throw new Error('404');const entries=r.portraits;available=new Set(entries.map(x=>String(x.simId)));Object.values(graph.nodes).forEach(n=>{n.photoAt=available.has(n.id)?null:0;});entries.forEach(p=>{const n=graph.nodes[String(p.simId)];if(n&&validPhotoAt(p.at)){n.photoAt=p.at;const cached=familyPortraitCache.get(cacheKey(n.id,p.at));if(cached){n.image=cached;requested.add(n.id);}}});paint();syncPhotoButtons();schedulePhotos(selected);}catch(e){if(current()&&owner===requestedOwner&&generation===buildEpoch){portraitStatus=photoError(e,'load');photoNote.textContent=portraitStatus;}}}
+
+  function build(){buildEpoch++;clearTimeout(readTimer);readTimer=null;listPage=0;portraitStatus='';photoPaused=false;photoNote.textContent='';available=new Set();requested=new Set();pendingGets=new Set();drawer.hidden=true;graph=familyGraph(famOf(owner));const count=Object.keys(graph.nodes).length;note.textContent=count?(graph.cyclic?'Some relationships form a cycle; positions are approximate. ':'')+(graph.truncated?'Only the first 500 known sims and up to 1000 total references are shown. ':'')+(graph.rankLimited?'Some ranks exceed 20; positions are approximate. ':'')+'Layout is approximate and lines may cross. Lines show reported parent and partner relationships. Missing references are marked; outside shown records are known but not expanded.':'No family data yet. Save the game to share it.';paint();fit();if(count)loadPhotos();}
+  shell.addEventListener('keydown',e=>{if(e.key==='Tab'){const focusable=[...shell.querySelectorAll('button:not([disabled]),select,input,summary,[tabindex=\"0\"]')].filter(el=>!el.closest('[hidden]')&&(!el.closest('details')||el.tagName==='SUMMARY'||el.closest('details').open));if(focusable.length){const i=focusable.indexOf(document.activeElement);if((e.shiftKey&&i<=0)||(!e.shiftKey&&(i<0||i===focusable.length-1))){e.preventDefault();focusable[e.shiftKey?focusable.length-1:0].focus();}}}if(e.key==='Escape'){if(!drawer.hidden){drawer.hidden=true;selected=null;stage.focus();}else close();}});
+  build();stage.focus();
+}
+async function preparePortrait(file){
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('unsupported-image');
+  const image=await new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im);};im.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('unsupported-image'));};im.src=u;});
+  for(let size=256;size>=64;size=Math.floor(size*.8)){const ratio=Math.min(1,size/image.width,size/image.height),c=document.createElement('canvas');c.width=Math.max(1,Math.round(image.width*ratio));c.height=Math.max(1,Math.round(image.height*ratio));c.getContext('2d').drawImage(image,0,0,c.width,c.height);for(let q=.85;q>=.35;q-=.1){const data=c.toDataURL('image/jpeg',q);if(data.length<=48000)return data;}}
+  throw new Error('image-too-large');
+}
+
+let linkedTreeEpoch=0;
+function dismissLinkedTree(){linkedTreeEpoch++;document.querySelector('#linked-tree')?.remove();}
+async function openLinkedTree(owner=ME){
+  dismissLinkedTree(); const epoch=linkedTreeEpoch, actor=ME, generation=sessionGeneration, deployment=GID, opener=document.activeElement;
+  const shell=h('div',{id:'linked-tree',class:'fx',role:'dialog','aria-modal':'true','aria-label':'Linked tree'});
+  const close=()=>{dismissLinkedTree();if(opener?.isConnected)opener.focus();};
+  const closeButton=h('button',{class:'fx-button',type:'button',onclick:close},'Close');
+  const header=h('div',{class:'fx-head'},closeButton,h('strong',{},'Linked tree'));
+  const content=h('div',{class:'pb',role:'status'},'Loading linked tree…');
+  shell.append(header,content);document.body.append(shell);closeButton.focus();
+  shell.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();return;}if(e.key==='Tab'){const items=[...shell.querySelectorAll('button,a[href],iframe')];if(e.shiftKey&&document.activeElement===items[0]){e.preventDefault();items[items.length-1].focus();}else if(!e.shiftKey&&document.activeElement===items[items.length-1]){e.preventDefault();items[0].focus();}}});
+  const current=()=>epoch===linkedTreeEpoch&&actor===ME&&generation===sessionGeneration&&deployment===GID&&shell.isConnected;
+  try{
+    const result=await api('linkedtree',{owner});if(!current())return;
+    const tree=result&&result.tree, valid=tree&&typeof tree.label==='string'&&tree.label.trim()&&tree.label.length<=80&&!/[\x00-\x1f\x7f]/.test(tree.label)&&typeof tree.url==='string'&&tree.url.length<=300&&!/[\x00-\x20\x7f]/.test(tree.url)&&/^https:\/\/app\.thesimstree\.com\/(?:crafted\/pages\/dynasty\/tree\/[0-9]+|public\/tree\/[A-Za-z0-9_-]+)$/.test(tree.url);
+    if(!valid){content.textContent='No linked tree is available.';return;}
+    content.textContent='';content.append(h('p',{text:tree.label}),h('p',{},'The tree may require sign-in or may not allow embedding.'),h('a',{href:tree.url,target:'_blank',rel:'noopener noreferrer',referrerpolicy:'no-referrer'},'Open in new tab'));
+    shell.append(h('iframe',{src:tree.url,title:tree.label,referrerpolicy:'no-referrer',sandbox:'allow-scripts allow-forms allow-popups allow-same-origin',style:'flex:1;width:100%;border:0;background:white'}));
+  }catch(e){if(current())content.textContent='Could not load the linked tree.';}
+}
 function familyPanel(name,title){
-  const S=famOf(name); if(!Object.keys(S).length) return null;
+  const S=famOf(name);
+  const launch=h("span",{},h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree"),h("button",{class:"btn ghost sm",type:"button",onclick:()=>openLinkedTree(name)},"Linked tree"));
+  if(!Object.keys(S).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
   const snapshot=syncOf(name), count=snapshot?snapshot.data.sims.filter(x=>x.inHousehold===true).length:0;
   const summary=snapshot?`${count} ${count===1?'sim':'sims'} in household · ${snapshot.at>0?'last recorded '+ago(snapshot.at):'recorded time unknown'}`:'Household count unavailable';
   const p=prog(name), {line,cur}=heirLine(name,S);
-  if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
-    h("div",{class:"pb"},h("p",{class:"muted",text:"The tree starts when the game knows your founder. Pick your founder from your game on the My legacy tab, then save the game once."})));
+  if(!Object.keys(line).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
+    h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family explorer to browse their relationships.`}),launch));
   const gens=[];
   const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
   const root=S[line[first]], roots=(root&&root.parents||[]).map(i=>S[i]).filter(Boolean);
@@ -1254,7 +1376,7 @@ function familyPanel(name,title){
     const badge=h("button",{class:"badge",type:"button",style:`--gc:${g.c}`,title:`Gen ${n}: ${g.title}`,onclick:()=>openGen(n)},g.e,h("small",{text:"Gen "+n}));
     if(!x){ gens.push(h("div",{class:"gen"},badge,h("div",{class:"gap",text:(s.heir?s.heir+" · ":"")+(n===cur?"Not in the game data yet. Save the game once.":"Not in the game data.")}))); continue; }
     let partners=uni(x.partners,[]); x.children.forEach(c=>{ const k=S[c]; if(k) partners=uni(partners,k.parents.filter(q=>q!==x.id)); }); partners=partners.filter(q=>q!==x.id);
-    const pcards=partners.map(i=>S[i]).filter(Boolean).map(y=>simCard(y,"",y.id===x.spouse?"Partner":(y.dead?"Late partner":"Ex / other parent")));
+    const pcards=partners.map(i=>S[i]).filter(Boolean).map(y=>simCard(y,"",y.id===x.spouse?"Partner":"Known relative / other parent"));
     const next=line[n+1];
     const kids=x.children.map(i=>S[i]).filter(Boolean).sort((a,b)=>AGE_ORDER.indexOf(a.age)-AGE_ORDER.indexOf(b.age));
     const need=g.kids||0;
@@ -1264,8 +1386,8 @@ function familyPanel(name,title){
         need&&kids.length>=need?h("span",{class:"ok",text:"✓"}):null,
         ...kids.map(k=>h("span",{class:"kid"+(k.id===next?" next":""),title:AGE[k.age]||""},(k.id===next?"⭐ ":"")+(k.dead?"🪦 ":"")+(k.first||simName(k)))))));
   }
-  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
-    h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens));
+  return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
+    h("div",{class:"pb"},launch),h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens));
 }
 function treePanel(p,all){
   const rows=GENS.filter(g=>all||g.n<=(p.current||1)).map(g=>{const s=genState(p,g.n);
@@ -1366,7 +1488,11 @@ function openGen(n){
 }
 function openPlayer(name){
   const p=prog(name);
-  if(!p){toast(`${name} hasn't started yet`);return;}
+  if(!p){
+    openSheet({c:pcolor(name),e:"🌳",title:"Family and household",tag:"This player hasn't started the challenge yet.",traits:[]},
+      h("div",{class:"sbody"},familyPanel(name),gamePanel(name,`🎮 ${name}'s household now`)),name);
+    return;
+  }
   const g=G(Math.min(p.current||1,20));
   const finished=Object.entries(p.gens||{}).filter(([,s])=>s.done);
   const avg=finished.length?(finished.reduce((a,[,s])=>a+(s.rating||0),0)/finished.length).toFixed(1):"–";
@@ -1484,7 +1610,7 @@ function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gam
   el.classList.toggle("ok",on);
   if(on&&!$("#setupGo")) el.after(h("button",{class:"btn go big",type:"button",id:"setupGo",onclick:leaveSetup},"Go to my legacy →")); }
 async function enter(name,fresh,switched){
-  persistTabRecovery(ME);sessionGeneration++; resetRecovery(); clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
+  if(typeof dismissLinkedTree==="function")dismissLinkedTree(); persistTabRecovery(ME);sessionGeneration++; resetRecovery(); clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
   const generation=sessionGeneration;
   ME=name; ls.set("tg-last",ME); MINE=null; scheduleRecovery(GAS?20000:15000);
   const recovery=readTabRecovery(ME);
