@@ -27,6 +27,8 @@ jobs:
           npm ci --ignore-scripts
       - name: Run JavaScript and installer status tests
         run: npm test
+      - name: Run synthetic life-event collector checks
+        run: python tests/life-collector.test.py
       - name: Run helper inbox tests with Windows PowerShell
         shell: powershell
         run: ./tests/helper-inbox.test.ps1
