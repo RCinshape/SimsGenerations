@@ -2,6 +2,8 @@
 
 This is the standard for player-facing release notices. Keep them professional, useful and infrequent. Use the existing bot and infrastructure; no extra paid service is needed.
 
+This policy covers patch notes only. [Life and legacy news](game-news.md) is sent as one message per event as soon as it is received, without this release collection period, hourly cooldown or posting window. Skill levels and skill-maxing objectives are excluded from game news.
+
 **Current instruction: do not post again.** Keep notices as drafts until the owner explicitly resumes posting. Do not send, edit, delete or test Discord messages to announce this policy. Updating documentation, merging a PR or deploying code is not authorization to send a message.
 
 ## One release, one notice

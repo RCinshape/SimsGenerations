@@ -38,3 +38,5 @@ the patcher changes only the two installer templates and rejects a second applic
 ## Release communication
 
 See the [changelog](CHANGELOG.md) and [Discord release update standard](docs/discord-updates.md). Aggregate meaningful changes, check prior delivery and follow the owner's current messaging instruction. Do not post on every merge or deployment.
+
+Life and legacy news follows [its own immediate delivery policy](docs/game-news.md). Apply `scripts/build-game-news.cjs` to a separate private candidate file; it preserves the existing goal rules and adds the skill-objective news filter incrementally. Run `NEWS_BACKEND_SOURCE=/private/original.gs node --test tests/game-news.test.cjs` for full-bundle checks. The collector source and unsigned-update builder are in `sync/mod/twentygen_life.py` and `scripts/build-life-update.py`; use Python 3.7 for its build and `python tests/life-collector.test.py` for synthetic hook checks. Keep private bundles and signing material outside this repository.

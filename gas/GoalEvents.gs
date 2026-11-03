@@ -79,6 +79,9 @@ function addEvent_(me, b) {
       }
       if (!complete) return res_(409, { error: 'stale_tick' });
       text = 'ticked “' + goals[goalIndex].t + '”' + (source === 'game' ? ' 🎮 from the game' : '');
+      // Keep skill completion in saved progress, without publishing it as legacy news.
+      // Use the validated catalog goal, never the caller's display text.
+      if (/\bskills?\b/i.test(goals[goalIndex].t)) return res_(200, { ok: true, suppressed: true });
     }
     var receivedAt = Date.now(), occurredAt = Number(b.at);
     var validTime = Number.isSafeInteger(occurredAt) && occurredAt >= 946684800000 && occurredAt <= receivedAt + 300000;
