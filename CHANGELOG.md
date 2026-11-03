@@ -8,6 +8,22 @@ Discord notices follow [the release update standard](docs/discord-updates.md). A
 
 No additional production release is asserted here. Collect the next verified batch before preparing a notice.
 
+## 2026-11-03.1 — 3 November 2026
+
+### Changed
+
+- Life and legacy news excludes snapshot skill/career announcements and skill-objective completion notices. Saved skill/challenge progress remains available.
+- Each detected event is sent individually when received. The daily game recap is removed and all fresh events in a sync are retained, including those beyond the previous eight-event limit. Patch-note batching is preserved.
+- Snapshot comparison now detects revival and mutual divorce, with guards against missing relationship data. The backend also accepts scoped, timestamped life-event journals.
+
+### Rollout and scope
+
+The backend was published as production version 22 on the existing endpoint. Google staging passed 14 isolated runtime checks with 17 individual in-memory messages, zero external posts and zero persistent test writes. Local full-bundle/app checks passed 80 tests with two unrelated private-integration skips; seven synthetic collector checks passed under Python 3.7.
+
+The new event collector and an unsigned update candidate are prepared but **not released**. Abduction, pre-term labour and incidents that begin and end between snapshots require that collector and working transport. Its automatic rollout still needs the existing trusted signing key. No new signing key or player game update is asserted, and no historical incident was announced.
+
+**Announcement status:** held for the existing patch-note batch. No release notice was sent.
+
 ## 2026-11-02.1 — 2 November 2026
 
 ### Fixed

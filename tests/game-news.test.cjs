@@ -93,6 +93,9 @@ test('repeated deaths and remarriages get distinct occurrence keys',()=>{
 });
 test('private builder preserves all other source, handles sanitation and removes daily aggregation', {skip:!process.env.NEWS_BACKEND_SOURCE},()=>{
   const original=fs.readFileSync(process.env.NEWS_BACKEND_SOURCE,'utf8'),result=build(goalBuild(original));
+  const incremental=build(original);
+  assert.equal(/var GOAL_RULES_VERSION_ = .*?;/.exec(incremental)[0],/var GOAL_RULES_VERSION_ = .*?;/.exec(original)[0]);
+  assert.ok(incremental.includes('if (/\\bskills?\\b/i.test(goals[goalIndex].t))'));
   assert.throws(()=>build(result),/already applied/);
   assert.ok(!result.includes('feed_(dailyRecap_())'));
   assert.equal(result.slice(result.indexOf('/* ===================== ModFiles.gs')),original.slice(original.indexOf('/* ===================== ModFiles.gs')));

@@ -23,6 +23,14 @@ function build(source) {
     "  if (x.life !== undefined) s.life = cleanLife_(x.life);");
   replaceOnce('    sims: Array.isArray(d.sims) ? d.sims.slice(0, 200).map(cleanSim_).filter(Boolean) : [] };',
     '    lifeEvents: cleanLifeEvents_(d.lifeEvents),\n    sims: Array.isArray(d.sims) ? d.sims.slice(0, 200).map(cleanSim_).filter(Boolean) : [] };');
+  // Preserve the existing goal rules/fingerprint; only add the canonical news filter.
+  if (!source.includes("if (/\\bskills?\\b/i.test(goals[goalIndex].t))")) {
+    const marker = "      text = 'ticked “' + goals[goalIndex].t + '”' + (source === 'game' ? ' 🎮 from the game' : '');";
+    replaceOnce(marker, marker + '\n' +
+      '      // Keep skill completion in saved progress, without publishing it as legacy news.\n' +
+      "      // Use the validated catalog goal, never the caller's display text.\n" +
+      '      if (/\\bskills?\\b/i.test(goals[goalIndex].t)) return res_(200, { ok: true, suppressed: true });');
+  }
   // Existing relay already sends news.forEach(feedAs_), immediately and individually.
   if (!source.includes('news.forEach(function (e) { feedAs_(real, e.t); });')) throw Error('relay individual delivery path has drifted');
   new vm.Script(source);
