@@ -115,3 +115,13 @@ test('existing id preference beats newer name fallback; missing recorded time is
  assert.match(header(w),/2 sims in household · recorded time unknown/);
  w.eval("LIVE.sync['qa-alpha'][1].data.sims[1].inHousehold=false");assert.match(header(w),/1 sim in household · recorded time unknown/);
 });
+test('family panel retains its controls and relationships in each content state',async t=>{
+ const w=await load(t);
+ for(const state of ["LIVE.fam['qa-alpha']={sims:{}};LIVE.sync['qa-alpha']=[]", "LIVE.fam['qa-alpha']={sims:{a:{f:'Founder',c:['b'],ps:['c']},b:{f:'Child'},c:{f:'Partner'}}};LIVE.progress['qa-alpha']={name:'qa-alpha',current:1,gens:{1:{heirSimId:'a'}}}"]){
+  w.eval(state);const panel=w.eval("familyPanel('qa-alpha')");assert.ok(panel.classList.contains('compact-family'));assert.match(panel.textContent,/Explore family tree/);assert.match(panel.textContent,/Linked tree/);
+ }
+ const panel=w.eval("familyPanel('qa-alpha')");assert.match(panel.textContent,/Founder/);assert.match(panel.textContent,/Child/);assert.match(panel.textContent,/Partner/);assert.equal(panel.querySelector('.ft .badge').tagName,'BUTTON');
+});
+test('vote form communicates the six-hour duration',async t=>{
+ const w=await load(t);w.eval('renderVotes()');assert.ok([...w.document.querySelectorAll('#votes button')].some(b=>b.textContent==='Start the vote (6 hours)'));
+});

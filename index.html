@@ -188,6 +188,20 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 .ft .kid.next{box-shadow:inset 0 0 0 2px var(--gold);background:#fff6d6}
 .ft .ok{color:var(--green2)}.ft .gap{color:var(--muted);font-size:14px}
 .ft .roots{font-size:13px;color:var(--muted);padding:4px 0 2px 54px}
+/* Compact only the family panel; keep its generation button at a 44px target. */
+.compact-family .ph{padding:6px 10px}
+.compact-family .ph h2{font-size:15px}
+.compact-family .pb{padding:4px 10px;gap:4px}
+.compact-family .ft{padding:0 10px 4px}
+.compact-family .ft .gen{padding:3px 0 3px 52px}
+.compact-family .ft .gen:not(:last-child)::after{top:47px;bottom:-3px}
+.compact-family .ft .badge{top:3px}
+.compact-family .ft .sim{padding:2px 7px;font-size:14px;line-height:1.35}
+.compact-family .ft .sim.heir{margin-top:0}
+.compact-family .ft .kids{margin-top:3px;gap:4px}
+.compact-family .ft .kid{padding:1px 6px}
+.compact-family .ft .roots{padding:1px 0 1px 52px}
+
 .stars{color:var(--gold);letter-spacing:1px;white-space:nowrap}
 
 /* plan */
@@ -1059,7 +1073,7 @@ function renderVotes(){
   const os=[1,2,3,4].map(i=>h("input",{maxlength:"60",placeholder:`Option ${i}`+(i>2?" (optional)":"")}));
   box.append(h("div",{class:"votef"},h("b",{text:"Start a vote"}),h("label",{class:"muted small",text:"About whose heir?"}),who,q,...os,
     h("button",{class:"btn go",type:"button",onclick:async()=>{const opts=os.map(x=>x.value.trim()).filter(Boolean);if(q.value.trim().length<3||opts.length<2){toast("Write a question and at least 2 options",true);return;}
-      try{await api("vote_new",{target:who.value,q:q.value.trim(),opts});toast("Vote started 🗳️");await pull();render();}catch(e){toast(e.code==="too_many_votes"?"You have 3 open votes already":"Couldn't start the vote",true);}}},"Start the vote (24 hours)")));
+      try{await api("vote_new",{target:who.value,q:q.value.trim(),opts});toast("Vote started 🗳️");await pull();render();}catch(e){toast(e.code==="too_many_votes"?"You have 3 open votes already":"Couldn't start the vote",true);}}},"Start the vote (6 hours)")));
 }
 /* ---------- chaos ---------- */
 function renderChaos(){
@@ -1348,11 +1362,11 @@ async function openLinkedTree(owner=ME){
 function familyPanel(name,title){
   const S=famOf(name);
   const launch=h("span",{},h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree"),h("button",{class:"btn ghost sm",type:"button",onclick:()=>openLinkedTree(name)},"Linked tree"));
-  if(!Object.keys(S).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
+  if(!Object.keys(S).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
   const snapshot=syncOf(name), count=snapshot?snapshot.data.sims.filter(x=>x.inHousehold===true).length:0;
   const summary=snapshot?`${count} ${count===1?'sim':'sims'} in household · ${snapshot.at>0?'last recorded '+ago(snapshot.at):'recorded time unknown'}`:'Household count unavailable';
   const p=prog(name), {line,cur}=heirLine(name,S);
-  if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
+  if(!Object.keys(line).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
     h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family explorer to browse their relationships.`}),launch));
   const gens=[];
   const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
@@ -1372,7 +1386,7 @@ function familyPanel(name,title){
         need&&kids.length>=need?h("span",{class:"ok",text:"✓"}):null,
         ...kids.map(k=>h("span",{class:"kid"+(k.id===next?" next":""),title:AGE[k.age]||""},(k.id===next?"⭐ ":"")+(k.dead?"🪦 ":"")+(k.first||simName(k)))))));
   }
-  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
+  return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
     h("div",{class:"pb"},launch),h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens));
 }
 function treePanel(p,all){
