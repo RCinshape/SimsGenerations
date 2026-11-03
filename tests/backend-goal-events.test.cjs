@@ -109,6 +109,37 @@ test('saved completion is recorded with canonical goal, original time and receip
   assert.equal(event.source,'manual');
 });
 
+test('manual and game skill completions stay saved without publishing news', () => {
+  for (const source of ['manual', 'game']) {
+    const app=setup();
+    const goal=vm.runInContext('trackGoals_(GOAL_CATALOG_[0])[0].t',app.context);
+    app.progress.gens[1].ticks=[0];app.save(app.progress);
+    app.snapshots([{at:now,hh:'household',data:{sims:[{id:'1001',first:'Sample',last:'Heir',inHousehold:true,
+      skills:['Baking','HomestyleCooking','Romance'].map(n=>({n,lv:10,max:10}))}]}}]);
+    const event={...app.event,goal,source,text:'Wedding bells!'};
+    assert.equal(app.send(event).d.suppressed,true);
+    assert.equal(app.send(event).d.suppressed,true);
+    assert.equal(app.files.has('feed.json'),false);
+    assert.equal(app.notifications.length,0);
+    assert.deepEqual(app.files.get('prog__qa-alpha.json').gens[1].ticks,[0]);
+  }
+});
+
+test('individual skill objectives are also suppressed, while life objectives still publish', () => {
+  const app=setup();
+  const targets=vm.runInContext('GOAL_CATALOG_.flatMap(g=>trackGoals_(g).map((goal,index)=>({gen:g.n,index,goal:goal.t}))).filter(x=>/skill/i.test(x.goal))',app.context);
+  assert.ok(targets.some(x=>x.index>1));
+  for (const target of targets) {
+    app.progress.gens[target.gen]={ticks:[target.index]};app.save(app.progress);
+    assert.equal(app.send({...app.event,id:'skillgoal'+target.gen+'index'+target.index,gen:target.gen,goal:target.goal}).d.suppressed,true);
+  }
+  const target=vm.runInContext('({index:trackGoals_(GOAL_CATALOG_[0]).findIndex(x=>/Marry your final/.test(x.t)),goal:trackGoals_(GOAL_CATALOG_[0]).find(x=>/Marry your final/.test(x.t)).t})',app.context);
+  app.progress.gens[1]={ticks:[target.index]};app.save(app.progress);
+  assert.equal(app.send({...app.event,id:'weddinggoal1',goal:target.goal,text:'Max the skills'}).s,200);
+  assert.equal(app.files.get('feed.json').length,1);
+  assert.equal(app.notifications.length,1);
+});
+
 test('claimed game completion needs the actual matching game snapshot', () => {
   const app=setup();app.progress.gens[1].autoSeen=[1];app.save(app.progress);
   const event={...app.event,source:'game'};
