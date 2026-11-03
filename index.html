@@ -752,7 +752,7 @@ const kidsText=g=>g.noKidRule?"3+ (see goals)":g.kids?`${g.kids} needed`:"1 or 2
 /* ---------- session ownership: another tab must not change this tab's actor ---------- */
 let SESSION_TOKEN=ls.get("tg-token")||"", sessionGeneration=0;
 function sessionChanged(){ const e=new Error("session_changed"); e.code="session_changed"; return e; }
-function setSessionToken(token){ token=token||""; if(token!==SESSION_TOKEN) sessionGeneration++; SESSION_TOKEN=token; if(SESSION_TOKEN) ls.set("tg-token",SESSION_TOKEN); else ls.del("tg-token"); }
+function setSessionToken(token){ token=token||""; if(token!==SESSION_TOKEN) { sessionGeneration++; if(typeof dismissLinkedTree==="function")dismissLinkedTree(); } SESSION_TOKEN=token; if(SESSION_TOKEN) ls.set("tg-token",SESSION_TOKEN); else ls.del("tg-token"); }
 window.addEventListener("storage",e=>{ if(GAS&&(e.key===ls.key("tg-token")||e.key===null)&&(ls.get("tg-token")||"")!==SESSION_TOKEN) loggedOut("Your account changed in another tab. Choose your name again."); });
 async function webCall(path,body,token){
   if(!GID) throw new Error("nolink");
@@ -787,7 +787,7 @@ async function api(path,body){
   if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; err.data=data; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
   return data;
 }
-function loggedOut(message){ if(typeof dismissFamilyExplorer==="function")dismissFamilyExplorer(); persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
+function loggedOut(message){ if(typeof dismissLinkedTree==="function")dismissLinkedTree(); if(typeof dismissFamilyExplorer==="function")dismissFamilyExplorer(); persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
 let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
 let MINE=null;            // my progress (source of truth on this device)
 let outbox=[];            // events waiting to send
@@ -1325,9 +1325,29 @@ async function preparePortrait(file){
   throw new Error('image-too-large');
 }
 
+let linkedTreeEpoch=0;
+function dismissLinkedTree(){linkedTreeEpoch++;document.querySelector('#linked-tree')?.remove();}
+async function openLinkedTree(){
+  dismissLinkedTree(); const epoch=linkedTreeEpoch, actor=ME, generation=sessionGeneration, deployment=GID, opener=document.activeElement;
+  const shell=h('div',{id:'linked-tree',class:'fx',role:'dialog','aria-modal':'true','aria-label':'Linked tree'});
+  const close=()=>{dismissLinkedTree();if(opener?.isConnected)opener.focus();};
+  const closeButton=h('button',{class:'fx-button',type:'button',onclick:close},'Close');
+  const header=h('div',{class:'fx-head'},closeButton,h('strong',{},'Linked tree'));
+  const content=h('div',{class:'pb',role:'status'},'Loading linked tree…');
+  shell.append(header,content);document.body.append(shell);closeButton.focus();
+  shell.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();return;}if(e.key==='Tab'){const items=[...shell.querySelectorAll('button,a[href],iframe')];if(e.shiftKey&&document.activeElement===items[0]){e.preventDefault();items[items.length-1].focus();}else if(!e.shiftKey&&document.activeElement===items[items.length-1]){e.preventDefault();items[0].focus();}}});
+  const current=()=>epoch===linkedTreeEpoch&&actor===ME&&generation===sessionGeneration&&deployment===GID&&shell.isConnected;
+  try{
+    const result=await api('linkedtree',{});if(!current())return;
+    const tree=result&&result.tree, valid=tree&&typeof tree.label==='string'&&tree.label.trim()&&tree.label.length<=80&&!/[\x00-\x1f\x7f]/.test(tree.label)&&typeof tree.url==='string'&&tree.url.length<=300&&!/[\x00-\x20\x7f]/.test(tree.url)&&/^https:\/\/app\.thesimstree\.com\/(?:crafted\/pages\/dynasty\/tree\/[0-9]+|public\/tree\/[A-Za-z0-9_-]+)$/.test(tree.url);
+    if(!valid){content.textContent='No linked tree is available.';return;}
+    content.textContent='';content.append(h('p',{text:tree.label}),h('p',{},'The tree may require sign-in or may not allow embedding.'),h('a',{href:tree.url,target:'_blank',rel:'noopener noreferrer',referrerpolicy:'no-referrer'},'Open in new tab'));
+    shell.append(h('iframe',{src:tree.url,title:tree.label,referrerpolicy:'no-referrer',sandbox:'allow-scripts allow-forms allow-popups allow-same-origin',style:'flex:1;width:100%;border:0;background:white'}));
+  }catch(e){if(current())content.textContent='Could not load the linked tree.';}
+}
 function familyPanel(name,title){
   const S=famOf(name);
-  const launch=h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree");
+  const launch=h("span",{},h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree"),key(name)===key(ME)?h("button",{class:"btn ghost sm",type:"button",onclick:openLinkedTree},"Linked tree"):null);
   if(!Object.keys(S).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
   const p=prog(name), {line,cur}=heirLine(name,S);
   if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),
@@ -1570,7 +1590,7 @@ function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gam
   el.classList.toggle("ok",on);
   if(on&&!$("#setupGo")) el.after(h("button",{class:"btn go big",type:"button",id:"setupGo",onclick:leaveSetup},"Go to my legacy →")); }
 async function enter(name,fresh,switched){
-  persistTabRecovery(ME);sessionGeneration++; resetRecovery(); clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
+  if(typeof dismissLinkedTree==="function")dismissLinkedTree(); persistTabRecovery(ME);sessionGeneration++; resetRecovery(); clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
   const generation=sessionGeneration;
   ME=name; ls.set("tg-last",ME); MINE=null; scheduleRecovery(GAS?20000:15000);
   const recovery=readTabRecovery(ME);
