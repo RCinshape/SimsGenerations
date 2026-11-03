@@ -54,7 +54,7 @@ def build(original, destination):
     candidate={'v':8,'files':files}
     (destination/'mod-update-v8.UNSIGNED.json').write_text(json.dumps(candidate,separators=(',',':')),encoding='utf8')
     manifest='TGUPD1\n8\n'+''.join(n+'\n'+hashlib.sha256(base64.b64decode(files[n])).hexdigest()+'\n' for n in sorted(files))
-    (destination/'signing-manifest.txt').write_text(manifest,encoding='utf8')
+    (destination/'signing-manifest.txt').write_bytes(manifest.encode('utf8'))
     print(json.dumps({'version':8,'signed':False,'files':sorted(files),'manifestSha256':hashlib.sha256(manifest.encode()).hexdigest()}))
 
 
