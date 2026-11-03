@@ -16,33 +16,20 @@ test('group reads honor roster and tester visibility and metadata validation',()
  files.set('linked-tree__alice.json',{label:'bad\nlabel',url:good});assert.equal(ctx.api('linkedtree',{},'a').d.tree,null);
  files.set('linked-tree__alice.json',{label:'x'.repeat(81),url:good});assert.equal(ctx.api('linkedtree',{},'a').d.tree,null);assert.ok(read.every(x=>x.startsWith('linked-tree__')));
 });
-test('own panel and pending requests are fenced on logout',async t=>{
+test('real links use validated destinations and cache by owner',async t=>{
  const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};}});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
  for(let i=0;i<100&&!d.querySelector('.pcard');i++)await new Promise(r=>setTimeout(r,10));
- assert.equal(w.eval("familyPanel('qa-beta').textContent.includes('Linked tree')"),true);assert.equal(w.eval("familyPanel(ME).textContent.includes('Linked tree')"),true);
- w.eval("window.pending=null;api=()=>new Promise(r=>window.pending=r);openLinkedTree()");assert.equal(d.querySelector('#linked-tree iframe'),null);w.eval('loggedOut()');w.pending({tree:{label:'fixture',url:good}});await new Promise(r=>setTimeout(r,0));assert.equal(d.querySelector('#linked-tree'),null);
+ w.fixtureUrl=good;w.eval("dismissLinkedTree();window.calls=[];api=async(path,body)=>{calls.push(body.owner);return {tree:{label:'fixture',url:window.fixtureUrl}}};document.body.append(familyPanel('qa-beta'),familyPanel('qa-beta'))");await new Promise(r=>setTimeout(r,0));
+ const panels=[...d.querySelectorAll('.compact-family')].slice(-2);for(const panel of panels){const native=panel.querySelector('a.btn.go'),original=panel.querySelector('a.btn.ghost');assert.equal(native.target,'_blank');assert.match(native.href,/family=qa-beta/);assert.equal(original.href,good);assert.equal(original.target,'_blank');assert.equal(original.rel,'noopener noreferrer');assert.equal(original.getAttribute('referrerpolicy'),'no-referrer');}assert.equal(w.calls.length,1);
 });
-test('explicit click loads validated link with fallback and close restores focus',async t=>{
+test('invalid and stale metadata never creates a link',async t=>{
  const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};}});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
  for(let i=0;i<100&&!d.querySelector('.pcard');i++)await new Promise(r=>setTimeout(r,10));
- w.fixtureUrl=good;w.eval("api=async()=>({tree:{label:'fixture',url:window.fixtureUrl}})");const button=d.createElement('button');d.body.append(button);button.focus();w.eval('openLinkedTree()');await new Promise(r=>setTimeout(r,0));const frame=d.querySelector('#linked-tree iframe'),link=d.querySelector('#linked-tree a');assert.ok(frame);assert.equal(frame.getAttribute('referrerpolicy'),'no-referrer');assert.match(frame.getAttribute('sandbox'),/allow-scripts/);assert.match(frame.getAttribute('sandbox'),/allow-same-origin/);assert.doesNotMatch(frame.getAttribute('sandbox'),/allow-top-navigation/);assert.equal(link.rel,'noopener noreferrer');d.querySelector('#linked-tree button').click();assert.equal(d.activeElement,button);
+ w.eval("dismissLinkedTree();window.pending=null;api=()=>new Promise(r=>window.pending=r);window.panel=familyPanel('qa-beta');document.body.append(panel);sessionGeneration++");w.pending({tree:{label:'fixture',url:good}});await new Promise(r=>setTimeout(r,0));assert.equal(w.panel.querySelector('a.btn.ghost'),null);
+ w.eval("dismissLinkedTree();api=async()=>({tree:{label:'bad',url:'https://app.thesimstree.com.evil.test/public/tree/x'}});window.panel2=familyPanel('qa-beta');document.body.append(panel2)");await new Promise(r=>setTimeout(r,0));assert.equal(w.panel2.querySelector('a.btn.ghost'),null);assert.match(w.panel2.textContent,/No original tree/);
 });
-
-test('invalid metadata never creates an external link or frame',async t=>{
- const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};}});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
- for(let i=0;i<100&&!d.querySelector('.pcard');i++)await new Promise(r=>setTimeout(r,10));
- w.fixtureUrl=good+'\n';w.eval("api=async()=>({tree:{label:'fixture',url:window.fixtureUrl}});openLinkedTree()");await new Promise(r=>setTimeout(r,0));assert.equal(d.querySelector('#linked-tree iframe'),null);assert.equal(d.querySelector('#linked-tree a'),null);
-});
-test('pending metadata cannot cross an actor or session change',async t=>{
- const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};}});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
- for(let i=0;i<100&&!d.querySelector('.pcard');i++)await new Promise(r=>setTimeout(r,10));
- for(const change of ["ME='qa-beta'", "sessionGeneration++"]){w.eval("window.pending=null;api=()=>new Promise(r=>window.pending=r);openLinkedTree();"+change);w.pending({tree:{label:'fixture',url:good}});await new Promise(r=>setTimeout(r,0));assert.equal(d.querySelector('#linked-tree iframe'),null);assert.equal(d.querySelector('#linked-tree a'),null);w.eval('dismissLinkedTree()');}
-});
-
-test('selected player action sends that owner and fences replaced requests',async t=>{
- const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};}});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
- for(let i=0;i<100&&!d.querySelector('.pcard');i++)await new Promise(r=>setTimeout(r,10));
- w.eval("window.calls=[];api=(path,body)=>{if(path==='linkedtree'){calls.push(body.owner);return new Promise(r=>window.pending=r)}return Promise.resolve({portraits:[]})};openFamilyExplorer(ME)");
- const select=d.querySelector('#family-explorer select');select.value='qa-beta';select.dispatchEvent(new w.Event('change',{bubbles:true}));[...d.querySelectorAll('#family-explorer button')].find(b=>b.textContent==='Linked tree').click();assert.equal(w.calls[0],'qa-beta');
- const old=w.pending;w.eval("openLinkedTree('qa-alpha')");old({tree:{label:'old fixture',url:'https://app.thesimstree.com/crafted/pages/dynasty/tree/123'}});await new Promise(r=>setTimeout(r,0));assert.equal(d.querySelector('#linked-tree iframe'),null);assert.equal(w.calls[1],'qa-alpha');w.pending({tree:{label:'new fixture',url:'https://app.thesimstree.com/crafted/pages/dynasty/tree/123'}});await new Promise(r=>setTimeout(r,0));assert.equal(d.querySelector('#linked-tree iframe').title,'new fixture');
+test('direct route and player selection preserve history and app shell',async t=>{
+ const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000&family=qa-beta',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};}});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ for(let i=0;i<100&&!d.querySelector('#family-explorer');i++)await new Promise(r=>setTimeout(r,10));assert.equal(d.querySelector('#family-explorer').className,'fx-page');assert.equal(d.querySelector('#tabs').hidden,false);assert.equal(d.querySelector('#family-explorer select').value,'qa-beta');assert.equal(d.querySelector('#family-explorer').getAttribute('role'),null);
+ const select=d.querySelector('#family-explorer select');select.value='qa-alpha';select.dispatchEvent(new w.Event('change'));assert.match(w.location.hash,/family=qa-alpha/);assert.match(d.querySelector('#v-family h1').textContent,/qa-alpha/);w.history.back();await new Promise(r=>setTimeout(r,30));assert.equal(d.querySelector('#family-explorer select').value,'qa-beta');
 });

@@ -361,6 +361,9 @@ html[data-theme=dark] .net{background:#3a1a15;color:#ff9c8c}
 html[data-theme=dark] a{color:#8cc4f5}
 
 .fx{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:#eaf5fb;color:#17324d;color-scheme:light}.fx-head select{color:inherit}html[data-theme=dark] .fx a{color:#145c93}.fx-head{display:flex;align-items:center;gap:8px;padding:10px;flex-wrap:wrap;background:#fff;border-bottom:2px solid #d6e6f3}.fx-head strong{margin-right:auto}.fx-head select,.fx-button{border:1px solid #b7d1e5;border-radius:10px;background:#fff;padding:7px 10px;font-weight:800}.fx-note{font-size:13px;color:#557089;padding:5px 12px}.fx-stage{position:relative;overflow:hidden;flex:1;min-height:180px;touch-action:none;background:radial-gradient(circle at center,#eef9ff,#cfe9f6);cursor:grab}.fx-world{position:absolute;left:0;top:0;transform-origin:0 0}.fx-world svg{position:absolute;inset:0;overflow:visible;pointer-events:none}.fx-world path{fill:none;stroke:#85aabd;stroke-width:3}.fx-world path.partner{stroke:#d995a8;stroke-dasharray:5 4}.fx-node{position:absolute;width:130px;min-height:130px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;font-size:13px;line-height:1.15;overflow-wrap:anywhere}.fx-node b{background:#fff;border-radius:8px;padding:3px 5px;max-width:130px}.fx-node small{background:#fff;border-radius:8px;padding:2px 5px}.fx-portrait{width:88px;height:88px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(150deg,#6dc4ef,#2a83bd);color:white;border:4px solid white;box-shadow:0 3px 8px #7699aa;font-size:28px;font-weight:900;overflow:hidden}.fx-portrait img{width:100%;height:100%;object-fit:cover}.fx-node.missing .fx-portrait{background:#9daeb8}.fx-drawer{position:absolute;right:12px;top:76px;bottom:60px;overflow:auto;width:min(340px,calc(100% - 24px));padding:16px;border-radius:16px;background:#fff;box-shadow:0 6px 24px #43677b66;display:flex;flex-direction:column;gap:10px}.fx-drawer input{max-width:100%}.fx-access{background:#fff;padding:8px 12px;max-height:30vh;overflow:auto}.fx-list{display:flex;flex-wrap:wrap;gap:6px}.fx-list-item{background:#eaf5fb;border-radius:8px;padding:6px}.fx-access summary{cursor:pointer;font-weight:900}@media(max-width:600px){.fx-head strong{width:calc(100% - 95px)}.fx-head{gap:5px}.fx-head .fx-button{padding:5px 8px}.fx-drawer{top:105px;bottom:55px}}
+
+.family-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.family-actions .btn{text-decoration:none}.family-status{font-size:13px;color:var(--muted)}
+.fx-page{position:relative;min-height:70vh;border:1px solid var(--hair);border-radius:18px;overflow:hidden;background:var(--surface);color:var(--ink);display:flex;flex-direction:column}.fx-page .fx-head,.fx-page .fx-access,.fx-page .fx-drawer{background:var(--surface);color:var(--ink)}.fx-page .fx-head{border-color:var(--hair)}.fx-page .fx-head select,.fx-page .fx-button{background:var(--surface);color:var(--ink);border-color:var(--hair)}.fx-page .fx-stage{min-height:480px;flex:1}.fx-page .fx-node b,.fx-page .fx-node small{background:var(--surface);color:var(--ink)}.fx-page .fx-list-item{background:var(--bg);color:var(--ink)}.fx-page .fx-note{color:var(--muted)}html[data-theme=dark] .fx-page .fx-stage{background:radial-gradient(circle at center,#254a60,#142d40)}.generation-history summary{cursor:pointer;font-weight:900;padding:16px}.generation-history .panel{margin:0}
 </style>
 </head>
 <body>
@@ -401,6 +404,8 @@ html[data-theme=dark] a{color:#8cc4f5}
       <div class="feed" id="feed"></div>
     </div>
   </section>
+
+  <section class="view" id="v-family" hidden></section>
 
   <!-- MY LEGACY -->
   <section class="view" id="v-me" hidden></section>
@@ -616,7 +621,7 @@ const ls={key:k=>"tg-group-"+encodeURIComponent(storageGroup||"unlinked")+":"+k,
   set(k,v){const ok=rawStorage.set(this.key(k),v);rawStorage.set("tg-migrated-"+this.key(k),"1");return ok;},
   del(k){rawStorage.del(this.key(k));rawStorage.set("tg-migrated-"+this.key(k),"1");}};
 const INVITE=BOOT.invite||qs.get("invite")||"", NEXT=GAS?"":(qs.get("next")||"");
-const goHome=()=>{ if(!GAS) history.replaceState(null,"","/"); };
+const goHome=()=>{ if(!GAS&&!familyRoute()) history.replaceState(null,"","/"); };
 ls.del("tg-code");
 let ME="";
 const key=n=>String(n||"").toLowerCase().trim();
@@ -801,7 +806,7 @@ async function api(path,body){
   if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; err.data=data; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
   return data;
 }
-function loggedOut(message){ if(typeof dismissLinkedTree==="function")dismissLinkedTree(); if(typeof dismissFamilyExplorer==="function")dismissFamilyExplorer(); persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
+function loggedOut(message){ if(typeof dismissLinkedTree==="function")dismissLinkedTree(); if(typeof dismissFamilyExplorer==="function")dismissFamilyExplorer(); persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan","family"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
 let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
 let MINE=null;            // my progress (source of truth on this device)
 let outbox=[];            // events waiting to send
@@ -991,12 +996,15 @@ function emit(type,gen,text,meta){ if(!ME) return null; const e=Object.assign({i
 
 /* ---------- tabs / routing ---------- */
 let TAB=ls.get("tg-tab")||"hood";
-function show(tab){ TAB=tab; ls.set("tg-tab",tab);
+function familyRoute(){const p=new URLSearchParams(location.hash.slice(1));return p.get('family')||'';}
+function familyHref(name){const p=new URLSearchParams();if(GID)p.set('g',GID);p.set('family',name);return location.pathname+location.search+'#'+p.toString();}
+function show(tab){ if(tab!=='family'&&familyRoute()){history.pushState(null,'',location.pathname+location.search+(GID?'#g='+encodeURIComponent(GID):''));dismissFamilyExplorer();} TAB=tab; ls.set("tg-tab",tab);
   document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===tab)));
-  ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=v!==tab);
+  ["hood","me","plan","family"].forEach(v=>$("#v-"+v).hidden=v!==tab);
   if(tab==="hood"){ ls.set("tg-seen-"+key(ME),String(Date.now())); }
   render(); window.scrollTo(0,0);
 }
+window.addEventListener('popstate',()=>{if(!ME)return;const owner=familyRoute();if(owner)showFamilyPage(owner);else{dismissFamilyExplorer();show(ls.get('tg-tab')==='family'?'hood':(ls.get('tg-tab')||'hood'));}});
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>show(b.dataset.tab)));
 
 /* ---------- render ---------- */
@@ -1012,6 +1020,7 @@ function genState(p,n){ return (p&&p.gens&&p.gens[n])||null; }
 function ticksDone(p,n){ return p?doneSet(p.name,n).size:0; }
 function render(){
   if(!ME) return;
+  if(TAB==="family"&&familyRoute()&&!$("#family-explorer")) showFamilyPage(familyRoute());
   if(TAB==="hood") renderHood();
   if(TAB==="me") renderMe();
   if(TAB==="plan") renderPlan();
@@ -1163,6 +1172,7 @@ function renderMe(){
   const v=$("#v-me"); v.innerHTML="";
   if(!MINE){
     const inp=h("input",{type:"text",id:"founder",maxlength:"40",placeholder:"e.g. Rosie Crumb"});
+    v.append(familyPanel(ME,"🌳 Your family tree"));
     v.append(h("div",{},h("h1",{class:"h1",text:`Welcome, ${ME}!`}),h("p",{class:"sub",text:"Here's how this works. It takes 10 seconds."})),
       h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},"How it works")),
         h("div",{class:"pb"},
@@ -1186,6 +1196,7 @@ function renderMe(){
   const auto=autoGoals(ME,n); const done=doneSet(ME,n).size;
   const heir=h("input",{type:"text",id:"heir",maxlength:"40",value:s.heir||"",placeholder:n===1?"Name your founder":"Name your heir"});
   heir.addEventListener("change",()=>{const old=s.heir;s.heir=heir.value.trim();saveMine();if(s.heir&&s.heir!==old)emit("heir",n,`named the Gen ${n} heir: ${s.heir}`);render();});
+  { const fp=familyPanel(ME,"🌳 Your family tree"); if(fp) v.append(fp); }
   v.append(h("div",{class:"hero",style:`--gc:${g.c}`},
     h("div",{class:"band"},h("div",{class:"em",text:g.e}),h("div",{class:"n",text:`Your generation ${n} of 20`}),h("h2",{text:g.title}),h("p",{class:"tag",text:g.tag}),
       h("div",{class:"traits"},...g.traits.map(t=>h("span",{text:t})),g.kids?h("span",{text:`👶 ${g.kids} kids this gen`}):null),
@@ -1222,7 +1233,6 @@ function renderMe(){
   v.append(h("div",{class:"panel"},h("div",{class:"pb"},h("p",{class:"muted small",text:g.why}),h("p",{text:g.story[0].length>420?g.story[0].slice(0,300).replace(/\s\S*$/,"")+"…":g.story[0]}))));
   v.append(h("div",{class:"row"},h("button",{class:"btn go",type:"button",onclick:()=>finishSheet(n)},`Finish generation ${n}`),
     h("button",{class:"btn ghost",type:"button",onclick:()=>openGen(n)},"See how the girls did")));
-  const fp=familyPanel(ME,"🌳 Your family tree"); if(fp) v.append(fp);
   v.append(h("button",{class:"btn ghost",type:"button",onclick:()=>openBook(ME)},"📖 My Legacy Book (print or PDF)"));
   const gp=gamePanel(ME,"🎮 Your household now"); if(gp) v.append(gp);
   v.append(treePanel(MINE,false));
@@ -1276,21 +1286,23 @@ function familyGraph(source){
 let familyEpoch=0;
 const familyPhotoVersions=new Map(), familyPhotoWrites=new Set(), familyReadHistory=new Map(), familyPortraitCache=new Map();
 function dismissFamilyExplorer(){familyEpoch++;const explorer=document.querySelector('#family-explorer');explorer?._dispose?.();explorer?.remove();}
-function openFamilyExplorer(initialOwner){
+function openFamilyExplorer(initialOwner,page=false){
   const opener=document.activeElement;const oldExplorer=document.querySelector('#family-explorer');oldExplorer?._dispose?.();oldExplorer?.remove();const epoch=++familyEpoch, actor=ME, session=sessionGeneration, deployment=GID;
   let owner=initialOwner,graph,scale=1,tx=0,ty=0,selected=null,photoJobs=[],active=0,portraitStatus='', buildEpoch=0,available=new Set(),requested=new Set(),pendingGets=new Set(),viewportBudget=40,photoPaused=false,readTimer=null,listPage=0;
   const current=()=>epoch===familyEpoch&&actor===ME&&session===sessionGeneration&&deployment===GID&&document.body.contains(shell);
-  const shell=h('div',{id:'family-explorer',class:'fx',role:'dialog','aria-modal':'true','aria-label':'Family explorer'});
+  const shell=h('div',page?{id:'family-explorer',class:'fx-page','aria-label':'Family tree'}:{id:'family-explorer',class:'fx',role:'dialog','aria-modal':'true','aria-label':'Family explorer'});
   const header=h('div',{class:'fx-head'}),stage=h('div',{class:'fx-stage',tabindex:'0','aria-label':'Family tree canvas. Use arrow keys to pan, plus and minus to zoom.'}), world=h('div',{class:'fx-world'}), drawer=h('aside',{class:'fx-drawer',hidden:true}), list=h('div',{class:'fx-list'}), note=h('p',{class:'fx-note'}),photoNote=h('p',{class:'fx-note',role:'status'});
   const onVisibility=()=>{if(!document.hidden&&current())runPhotoJobs();};document.addEventListener('visibilitychange',onVisibility);
   shell._dispose=()=>{clearTimeout(readTimer);readTimer=null;document.removeEventListener('visibilitychange',onVisibility);};
-  const close=()=>{familyEpoch++;shell._dispose();shell.remove();if(opener&&opener.isConnected)opener.focus();};
+  const close=()=>{familyEpoch++;shell._dispose();shell.remove();if(page){show('hood');}else if(opener&&opener.isConnected)opener.focus();};
   const btn=(text,fn)=>h('button',{class:'fx-button',type:'button',onclick:fn},text);
   const options=Array.from(new Set([owner,...(LIVE.roster||[]),ME].filter(Boolean)));
-  const select=h('select',{'aria-label':'Player',onchange:e=>{owner=e.target.value;selected=null;build();}},...options.map(n=>h('option',{value:n,...(n===owner?{selected:true}:{})},n)));
-  header.append(btn('← Back',close),h('strong',{text:'Family explorer'}),select,btn('Linked tree',()=>openLinkedTree(owner)),btn('−',()=>zoom(.8)),btn('+',()=>zoom(1.25)),btn('Fit',fit),btn('Reset',()=>{scale=1;tx=20;ty=20;apply();}));
+  const original=h('span',{class:'family-actions'});
+  const select=h('select',{'aria-label':'Player',onchange:e=>{owner=e.target.value;selected=null;if(page)original.replaceChildren(originalTreeLink(owner));if(page){history.pushState(null,'',familyHref(owner));$('#v-family h1').textContent=owner+'’s family tree';}build();}},...options.map(n=>h('option',{value:n,...(n===owner?{selected:true}:{})},n)));
+  if(page)original.append(originalTreeLink(owner));
+  header.append(btn('← Neighborhood',close),h('strong',{text:'🌳 Family tree'}),select,original,btn('−',()=>zoom(.8)),btn('+',()=>zoom(1.25)),btn('Fit',fit),btn('Reset',()=>{scale=1;tx=20;ty=20;apply();}));
   const filter=h('input',{type:'search',placeholder:'Filter family names','aria-label':'Filter family names',oninput:()=>{listPage=0;paintList();}});
-  shell.append(header,note,photoNote,stage,drawer,h('details',{class:'fx-access'},h('summary',{},'Family list (keyboard accessible)'),filter,list));stage.append(world);document.body.append(shell);
+  shell.append(header,note,photoNote,stage,drawer,h('details',{class:'fx-access'},h('summary',{},'Family list (keyboard accessible)'),filter,list));stage.append(world);(page?$('#v-family'):document.body).append(shell);
   function apply(){world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;viewportBudget=40;schedulePhotos();}
   function zoom(f,x=stage.clientWidth/2,y=stage.clientHeight/2){const next=Math.min(2.5,Math.max(.0001,scale*f));tx=x-(x-tx)*next/scale;ty=y-(y-ty)*next/scale;scale=next;apply();}
   function fit(){const width=stage.clientWidth||800,height=stage.clientHeight||500;scale=Math.max(.0001,Math.min(1.4,Math.max(1,width-40)/graph.width,Math.max(1,height-40)/graph.height));tx=(width-graph.width*scale)/2;ty=(height-graph.height*scale)/2;apply();}
@@ -1329,8 +1341,8 @@ function openFamilyExplorer(initialOwner){
   async function loadPhotos(){const requestedOwner=owner,generation=buildEpoch;try{const r=await photoRequest({action:'list',owner:requestedOwner},generation);if(!current()||owner!==requestedOwner||generation!==buildEpoch)return;if(!r||!Array.isArray(r.portraits))throw new Error('404');const entries=r.portraits;available=new Set(entries.map(x=>String(x.simId)));Object.values(graph.nodes).forEach(n=>{n.photoAt=available.has(n.id)?null:0;});entries.forEach(p=>{const n=graph.nodes[String(p.simId)];if(n&&validPhotoAt(p.at)){n.photoAt=p.at;const cached=familyPortraitCache.get(cacheKey(n.id,p.at));if(cached){n.image=cached;requested.add(n.id);}}});paint();syncPhotoButtons();schedulePhotos(selected);}catch(e){if(current()&&owner===requestedOwner&&generation===buildEpoch){portraitStatus=photoError(e,'load');photoNote.textContent=portraitStatus;}}}
 
   function build(){buildEpoch++;clearTimeout(readTimer);readTimer=null;listPage=0;portraitStatus='';photoPaused=false;photoNote.textContent='';available=new Set();requested=new Set();pendingGets=new Set();drawer.hidden=true;graph=familyGraph(famOf(owner));const count=Object.keys(graph.nodes).length;note.textContent=count?(graph.cyclic?'Some relationships form a cycle; positions are approximate. ':'')+(graph.truncated?'Only the first 500 known sims and up to 1000 total references are shown. ':'')+(graph.rankLimited?'Some ranks exceed 20; positions are approximate. ':'')+'Layout is approximate and lines may cross. Lines show reported parent and partner relationships. Missing references are marked; outside shown records are known but not expanded.':'No family data yet. Save the game to share it.';paint();fit();if(count)loadPhotos();}
-  shell.addEventListener('keydown',e=>{if(e.key==='Tab'){const focusable=[...shell.querySelectorAll('button:not([disabled]),select,input,summary,[tabindex=\"0\"]')].filter(el=>!el.closest('[hidden]')&&(!el.closest('details')||el.tagName==='SUMMARY'||el.closest('details').open));if(focusable.length){const i=focusable.indexOf(document.activeElement);if((e.shiftKey&&i<=0)||(!e.shiftKey&&(i<0||i===focusable.length-1))){e.preventDefault();focusable[e.shiftKey?focusable.length-1:0].focus();}}}if(e.key==='Escape'){if(!drawer.hidden){drawer.hidden=true;selected=null;stage.focus();}else close();}});
-  build();stage.focus();
+  shell.addEventListener('keydown',e=>{if(!page&&e.key==='Tab'){const focusable=[...shell.querySelectorAll('button:not([disabled]),select,input,summary,[tabindex=\"0\"]')].filter(el=>!el.closest('[hidden]')&&(!el.closest('details')||el.tagName==='SUMMARY'||el.closest('details').open));if(focusable.length){const i=focusable.indexOf(document.activeElement);if((e.shiftKey&&i<=0)||(!e.shiftKey&&(i<0||i===focusable.length-1))){e.preventDefault();focusable[e.shiftKey?focusable.length-1:0].focus();}}}if(e.key==='Escape'){if(!drawer.hidden){drawer.hidden=true;selected=null;stage.focus();}else if(!page)close();}});
+  build();if(!page)stage.focus();
 }
 async function preparePortrait(file){
   if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('unsupported-image');
@@ -1340,34 +1352,31 @@ async function preparePortrait(file){
 }
 
 let linkedTreeEpoch=0;
-function dismissLinkedTree(){linkedTreeEpoch++;document.querySelector('#linked-tree')?.remove();}
-async function openLinkedTree(owner=ME){
-  dismissLinkedTree(); const epoch=linkedTreeEpoch, actor=ME, generation=sessionGeneration, deployment=GID, opener=document.activeElement;
-  const shell=h('div',{id:'linked-tree',class:'fx',role:'dialog','aria-modal':'true','aria-label':'Linked tree'});
-  const close=()=>{dismissLinkedTree();if(opener?.isConnected)opener.focus();};
-  const closeButton=h('button',{class:'fx-button',type:'button',onclick:close},'Close');
-  const header=h('div',{class:'fx-head'},closeButton,h('strong',{},'Linked tree'));
-  const content=h('div',{class:'pb',role:'status'},'Loading linked tree…');
-  shell.append(header,content);document.body.append(shell);closeButton.focus();
-  shell.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();return;}if(e.key==='Tab'){const items=[...shell.querySelectorAll('button,a[href],iframe')];if(e.shiftKey&&document.activeElement===items[0]){e.preventDefault();items[items.length-1].focus();}else if(!e.shiftKey&&document.activeElement===items[items.length-1]){e.preventDefault();items[0].focus();}}});
-  const current=()=>epoch===linkedTreeEpoch&&actor===ME&&generation===sessionGeneration&&deployment===GID&&shell.isConnected;
-  try{
-    const result=await api('linkedtree',{owner});if(!current())return;
-    const tree=result&&result.tree, valid=tree&&typeof tree.label==='string'&&tree.label.trim()&&tree.label.length<=80&&!/[\x00-\x1f\x7f]/.test(tree.label)&&typeof tree.url==='string'&&tree.url.length<=300&&!/[\x00-\x20\x7f]/.test(tree.url)&&/^https:\/\/app\.thesimstree\.com\/(?:crafted\/pages\/dynasty\/tree\/[0-9]+|public\/tree\/[A-Za-z0-9_-]+)$/.test(tree.url);
-    if(!valid){content.textContent='No linked tree is available.';return;}
-    content.textContent='';content.append(h('p',{text:tree.label}),h('p',{},'The tree may require sign-in or may not allow embedding.'),h('a',{href:tree.url,target:'_blank',rel:'noopener noreferrer',referrerpolicy:'no-referrer'},'Open in new tab'));
-    shell.append(h('iframe',{src:tree.url,title:tree.label,referrerpolicy:'no-referrer',sandbox:'allow-scripts allow-forms allow-popups allow-same-origin',style:'flex:1;width:100%;border:0;background:white'}));
-  }catch(e){if(current())content.textContent='Could not load the linked tree.';}
+const linkedTreeCache=new Map();
+function dismissLinkedTree(){linkedTreeEpoch++;linkedTreeCache.clear();}
+function validLinkedTree(tree){return tree&&typeof tree.label==='string'&&tree.label.trim()&&tree.label.length<=80&&!/[\x00-\x1f\x7f]/.test(tree.label)&&typeof tree.url==='string'&&tree.url.length<=300&&!/[\x00-\x20\x7f]/.test(tree.url)&&/^https:\/\/app\.thesimstree\.com\/(?:crafted\/pages\/dynasty\/tree\/[0-9]+|public\/tree\/[A-Za-z0-9_-]+)$/.test(tree.url);}
+function originalTreeLink(owner){
+  const box=h('span',{class:'family-status',role:'status'},'Loading original tree…'), actor=ME, session=sessionGeneration, deployment=GID;
+  const cacheKey=[deployment,session,key(actor),key(owner)].join(':');let request=linkedTreeCache.get(cacheKey);if(!request){request=api('linkedtree',{owner});linkedTreeCache.set(cacheKey,request);request.catch(()=>{if(linkedTreeCache.get(cacheKey)===request)linkedTreeCache.delete(cacheKey);});}
+  request.then(result=>{if(!box.isConnected||actor!==ME||session!==sessionGeneration||deployment!==GID)return;const tree=result&&result.tree;if(!validLinkedTree(tree)){box.textContent='No original tree linked yet.';return;}box.replaceWith(h('a',{class:'btn ghost',href:tree.url,target:'_blank',rel:'noopener noreferrer',referrerpolicy:'no-referrer',title:tree.label},'Open original tree ↗'));}).catch(()=>{if(box.isConnected&&actor===ME&&session===sessionGeneration)box.textContent='Could not load the original tree. Try again later.';});
+  return box;
+}
+function showFamilyPage(owner){
+  if(!ME)return;const found=players().find(n=>key(n)===key(owner));
+  TAB='family';document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected','false'));['hood','me','plan','family'].forEach(v=>$('#v-'+v).hidden=v!=='family');
+  const view=$('#v-family');dismissFamilyExplorer();view.textContent='';
+  if(!found){view.append(h('h1',{class:'h1'},'Family tree'),h('p',{class:'muted'},'This player is not available. Check the link or return to the neighborhood.'),h('button',{class:'btn',type:'button',onclick:()=>show('hood')},'← Neighborhood'));return;}
+  view.append(h('div',{},h('h1',{class:'h1',text:found+"’s family tree"}),h('p',{class:'sub'},'Explore the family and its relationships.')));openFamilyExplorer(found,true);
 }
 function familyPanel(name,title){
   const S=famOf(name);
-  const launch=h("span",{},h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree"),h("button",{class:"btn ghost sm",type:"button",onclick:()=>openLinkedTree(name)},"Linked tree"));
+  const launch=h("div",{class:"family-actions"},h("a",{class:"btn go",href:familyHref(name),target:"_blank",rel:"noopener noreferrer"},"Open family tree ↗"),originalTreeLink(name));
   if(!Object.keys(S).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
   const snapshot=syncOf(name), count=snapshot?snapshot.data.sims.filter(x=>x.inHousehold===true).length:0;
   const summary=snapshot?`${count} ${count===1?'sim':'sims'} in household · ${snapshot.at>0?'last recorded '+ago(snapshot.at):'recorded time unknown'}`:'Household count unavailable';
   const p=prog(name), {line,cur}=heirLine(name,S);
   if(!Object.keys(line).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
-    h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family explorer to browse their relationships.`}),launch));
+    h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family tree to browse their relationships.`}),launch));
   const gens=[];
   const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
   const root=S[line[first]], roots=(root&&root.parents||[]).map(i=>S[i]).filter(Boolean);
@@ -1500,16 +1509,16 @@ function openPlayer(name){
   const dares=Object.values(p.gens||{}).filter(s=>s.dare).length;
   const recent=[...LIVE.feed].filter(e=>key(e.who)===key(name)).sort((a,b)=>b.at-a.at).slice(0,8);
   openSheet(g,h("div",{class:"sbody"},
-    h("div",{class:"panel list"},
+    familyPanel(name),
+    gamePanel(name,`🎮 ${name}'s household now`),
+    h("details",{class:"panel generation-history"},h("summary",{},"Generation history"),h("div",{class:"panel list"},
       h("div",{class:"rowi"},h("span",{text:"Generations done"}),h("span",{text:`${finished.length} of 20`})),
       h("div",{class:"rowi"},h("span",{text:"Goals ticked"}),h("span",{text:String(ticks)})),
       h("div",{class:"rowi"},h("span",{text:"Dares done"}),h("span",{text:String(dares)})),
       h("div",{class:"rowi"},h("span",{text:"Average rating"}),h("span",{text:avg}))),
     p.status&&p.status.text?h("div",{class:"panel"},h("div",{class:"pb"},h("span",{class:"label",text:"Status · "+ago(p.status.at)}),h("p",{text:p.status.text}))):null,
     h("button",{class:"btn ghost",type:"button",onclick:()=>openBook(name)},"📖 Open the Legacy Book"),
-    familyPanel(name),
-    gamePanel(name,`🎮 ${name}'s household now`),
-    treePanel(p,false),
+    treePanel(p,false)),
     recent.length?h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},"Latest")),h("div",{class:"feed"},...recent.map(feedItem))):null),
     `${name} · Gen ${g.n}`);
 }
@@ -1521,7 +1530,7 @@ const ERR={wrong_name_or_pin:"That name and PIN don't match.",locked:"Too many t
 function errText(e){ if(e.message==="nolink") return "Open the app with the link from the group's Discord (this page needs the full link once)."; if(e.message==="offline") return GAS?"Can't reach the app. Check your internet and try again.":"Can't reach the host's server. Is it on?"; if(e.message==="429"&&!e.code) return "Too many tries from your connection. Try again in an hour."; return ERR[e.code]||"Something went wrong. Try again."; }
 function pinInput(id,ph){ return h("input",{type:"password",id,inputmode:"numeric",autocomplete:id==="pin"?"current-password":"new-password",pattern:"[0-9]*",maxlength:"12",placeholder:ph||"4–12 digits"}); }
 async function pickScreen(msg){
-  ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); $("#tabs").hidden=true; $("#meBtn").hidden=true;
+  ["hood","me","plan","family"].forEach(v=>$("#v-"+v).hidden=true); $("#tabs").hidden=true; $("#meBtn").hidden=true;
   $("#gate").hidden=false; const p=$("#authPanel"); p.innerHTML=""; $("#gateMsg").textContent=msg||"";
   let names=[], needCode=false; try{ const nd=await api("names"); names=nd.names||[]; needCode=!!nd.needCode; }catch(e){ $("#gateMsg").textContent=errText(e); }
   const codeIn=needCode?h("input",{type:"text",id:"pickCode",placeholder:"Your personal code (from the host)",autocomplete:"one-time-code",style:"font:inherit;padding:12px;border-radius:12px;border:2px solid var(--hair)"}):null;
@@ -1539,7 +1548,7 @@ async function pickScreen(msg){
 }
 function authScreen(kind,msg){
   if(GAS&&kind!=="join"){ pickScreen(msg); return; }
-  ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true);
+  ["hood","me","plan","family"].forEach(v=>$("#v-"+v).hidden=true);
   $("#gate").hidden=false; const p=$("#authPanel"); p.innerHTML=""; $("#gateMsg").textContent=msg||"";
   const fail=e=>{$("#gateMsg").textContent=errText(e);};
   if(kind==="invite"){
@@ -1581,7 +1590,7 @@ const ON_PC=/Windows/i.test(navigator.userAgent)&&!/Phone|Mobile|Android/i.test(
 const MODS_ON=()=>h("div",{class:"must"},"⚠️ Mods must be ON in The Sims 4. The installer switches them on for you. If the game still says mods are off: ",
   h("b",{},"Game Options › Other"),", tick ",h("b",{},"“Enable Custom Content and Mods”")," and ",h("b",{},"“Script Mods Allowed”"),", then restart the game.");
 function setupScreen(switched){
-  SETUP=true; ["hood","me","plan"].forEach(v=>$("#v-"+v).hidden=true); $("#tabs").hidden=true; closeSheet();
+  SETUP=true; ["hood","me","plan","family"].forEach(v=>$("#v-"+v).hidden=true); $("#tabs").hidden=true; closeSheet();
   $("#gate").hidden=false; const p=$("#authPanel"); p.innerHTML=""; $("#gateMsg").textContent="";
   const pc=[
     h("ol",{class:"bigsteps"},
@@ -1627,9 +1636,10 @@ async function enter(name,fresh,switched){
   $("#gate").hidden=true; $("#gateMsg").textContent=""; $("#tabs").hidden=false;
   const mb=$("#meBtn"); mb.hidden=false; mb.innerHTML=""; mb.append(avatar(ME));
   mb.onclick=()=>openAccount();
-  try{ await pull(); }catch(e){}
+  let familyLoaded=true;try{ await pull(); }catch(e){familyLoaded=false;}
   if(generation!==sessionGeneration||key(ME)!==key(name)) return;
   if(dirty) flush();
+  if(familyRoute()){if(familyLoaded)showFamilyPage(familyRoute());else{TAB='family';['hood','me','plan','family'].forEach(v=>$('#v-'+v).hidden=v!=='family');$('#v-family').textContent='Could not load family data. Reconnecting…';}return;}
   if(LIVE.syncOn&&(switched||(!gameSeen()&&(fresh||!ls.get("tg-skip-"+key(ME)))))){ if(GO) clearGo(); setupScreen(switched); scheduleRecovery(8000); return; }
   show(MINE?TAB:"me");
   if(GO) goInstall();
@@ -1672,6 +1682,6 @@ window.addEventListener("online",()=>scheduleRecovery(0));
 })();
 </script>
 <div id="tgload" style="position:fixed;inset:0;display:grid;place-items:center;z-index:50;pointer-events:none"><div style="text-align:center;font:800 16px Nunito,system-ui,sans-serif;color:#1c64bf"><div style="width:44px;height:44px;margin:0 auto 10px;border:5px solid #cfe6f8;border-top-color:#3f9b1f;border-radius:50%;animation:tgspin .8s linear infinite"></div>Loading your legacy…</div></div><style>@keyframes tgspin{to{transform:rotate(360deg)}}</style>
-<script>(function(){var t=setInterval(function(){var l=document.getElementById("tgload");if(!l){clearInterval(t);return;}var g=document.getElementById("gate"),seen=(g&&!g.hidden&&g.textContent.trim().length>20)||["hood","me","plan"].some(function(v){var e=document.getElementById("v-"+v);return e&&!e.hidden&&e.textContent.trim();});if(seen){l.remove();clearInterval(t);}},150);})();</script>
+<script>(function(){var t=setInterval(function(){var l=document.getElementById("tgload");if(!l){clearInterval(t);return;}var g=document.getElementById("gate"),seen=(g&&!g.hidden&&g.textContent.trim().length>20)||["hood","me","plan","family"].some(function(v){var e=document.getElementById("v-"+v);return e&&!e.hidden&&e.textContent.trim();});if(seen){l.remove();clearInterval(t);}},150);})();</script>
 </body>
 </html>

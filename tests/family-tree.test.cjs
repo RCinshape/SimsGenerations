@@ -9,11 +9,11 @@ test('an unstarted player card opens shared family data without creating progres
  w.eval(`delete LIVE.progress['qa-beta'];LIVE.fam['qa-beta']={sims:{b:{f:'Other',l:'Founder'}}};window.calls=[];api=async(path,body)=>{window.calls.push({path,body});return path==='portrait'?{portraits:[]}:{ok:true};};renderHood();`);
  const card=[...d.querySelectorAll('.pcard')].find(el=>el.textContent.includes('qa-beta'));
  assert.match(card.textContent,/hasn't started/i);card.click();
- const sheet=d.querySelector('.sheet');assert.equal(sheet.getAttribute('aria-label'),'qa-beta');assert.match(sheet.textContent,/hasn't started the challenge/i);assert.match(sheet.textContent,/Game data contains 1 sim\./);assert.match(sheet.textContent,/Household count unavailable/);assert.ok([...sheet.querySelectorAll('button')].some(b=>b.textContent==='Linked tree'));assert.doesNotMatch(sheet.textContent,/Gen 1|Playing/);
- [...sheet.querySelectorAll('button')].find(b=>b.textContent==='Explore family tree').click();await new Promise(r=>setTimeout(r,0));
+ const sheet=d.querySelector('.sheet');assert.equal(sheet.getAttribute('aria-label'),'qa-beta');assert.match(sheet.textContent,/hasn't started the challenge/i);assert.match(sheet.textContent,/Game data contains 1 sim\./);assert.match(sheet.textContent,/Household count unavailable/);assert.ok(sheet.querySelector('a[target=_blank]')); assert.doesNotMatch(sheet.textContent,/Gen 1|Playing/);
+ assert.match(sheet.querySelector('a[target=_blank]').getAttribute('href'),/family=qa-beta/);w.eval("openFamilyExplorer('qa-beta')");await new Promise(r=>setTimeout(r,0));
  d.querySelector('.fx-node').click();assert.match(d.querySelector('.fx-drawer').textContent,/Other Founder/);assert.equal(d.querySelector('.fx-drawer input[type=file]'),null);assert.equal(w.eval("prog('qa-beta')"),null);
  assert.ok(w.calls.some(c=>c.path==='portrait'&&c.body.owner==='qa-beta'));
- assert.ok(w.calls.every(c=>c.path==='portrait'&&['list','get'].includes(c.body.action)),JSON.stringify(w.calls));
+ assert.ok(w.calls.every(c=>c.path==='linkedtree'||(c.path==='portrait'&&['list','get'].includes(c.body.action))),JSON.stringify(w.calls));
 });
 test('fit contains wide and deep families and keeps the overview while zooming',async t=>{
  const w=await load(t),d=w.document;
@@ -118,7 +118,7 @@ test('existing id preference beats newer name fallback; missing recorded time is
 test('family panel retains its controls and relationships in each content state',async t=>{
  const w=await load(t);
  for(const state of ["LIVE.fam['qa-alpha']={sims:{}};LIVE.sync['qa-alpha']=[]", "LIVE.fam['qa-alpha']={sims:{a:{f:'Founder',c:['b'],ps:['c']},b:{f:'Child'},c:{f:'Partner'}}};LIVE.progress['qa-alpha']={name:'qa-alpha',current:1,gens:{1:{heirSimId:'a'}}}"]){
-  w.eval(state);const panel=w.eval("familyPanel('qa-alpha')");assert.ok(panel.classList.contains('compact-family'));assert.match(panel.textContent,/Explore family tree/);assert.match(panel.textContent,/Linked tree/);
+  w.eval(state);const panel=w.eval("familyPanel('qa-alpha')");assert.ok(panel.classList.contains('compact-family'));assert.match(panel.textContent,/Open family tree/);assert.match(panel.textContent,/original tree/i);
  }
  const panel=w.eval("familyPanel('qa-alpha')");assert.match(panel.textContent,/Founder/);assert.match(panel.textContent,/Child/);assert.match(panel.textContent,/Partner/);assert.equal(panel.querySelector('.ft .badge').tagName,'BUTTON');
 });
