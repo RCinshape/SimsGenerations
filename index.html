@@ -1349,8 +1349,10 @@ function familyPanel(name,title){
   const S=famOf(name);
   const launch=h("span",{},h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree"),h("button",{class:"btn ghost sm",type:"button",onclick:()=>openLinkedTree(name)},"Linked tree"));
   if(!Object.keys(S).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
+  const snapshot=syncOf(name), count=snapshot?snapshot.data.sims.filter(x=>x.inHousehold===true).length:0;
+  const summary=snapshot?`${count} ${count===1?'sim':'sims'} in household · ${snapshot.at>0?'last recorded '+ago(snapshot.at):'recorded time unknown'}`:'Household count unavailable';
   const p=prog(name), {line,cur}=heirLine(name,S);
-  if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),
+  if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
     h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family explorer to browse their relationships.`}),launch));
   const gens=[];
   const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
@@ -1370,7 +1372,7 @@ function familyPanel(name,title){
         need&&kids.length>=need?h("span",{class:"ok",text:"✓"}):null,
         ...kids.map(k=>h("span",{class:"kid"+(k.id===next?" next":""),title:AGE[k.age]||""},(k.id===next?"⭐ ":"")+(k.dead?"🪦 ":"")+(k.first||simName(k)))))));
   }
-  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:`${Object.keys(S).length} sims · from the game`})),
+  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
     h("div",{class:"pb"},launch),h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens));
 }
 function treePanel(p,all){
