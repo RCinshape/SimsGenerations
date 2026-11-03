@@ -1241,8 +1241,10 @@ function simCard(x,cls,extra){ return h("span",{class:"sim "+(cls||"")+(x.dead?"
   h("span",{text:[extra,AGE[x.age]||"",...(x.occ||[]).map(o=>OCC[o]||o)].filter(Boolean).join(" · ")||" "})); }
 function familyPanel(name,title){
   const S=famOf(name); if(!Object.keys(S).length) return null;
+  const snapshot=syncOf(name), count=snapshot?snapshot.data.sims.filter(x=>x.inHousehold===true).length:0;
+  const summary=snapshot?`${count} ${count===1?'sim':'sims'} in household · ${snapshot.at>0?'last recorded '+ago(snapshot.at):'recorded time unknown'}`:'Household count unavailable';
   const p=prog(name), {line,cur}=heirLine(name,S);
-  if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),
+  if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
     h("div",{class:"pb"},h("p",{class:"muted",text:"The tree starts when the game knows your founder. Pick your founder from your game on the My legacy tab, then save the game once."})));
   const gens=[];
   const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
@@ -1262,7 +1264,7 @@ function familyPanel(name,title){
         need&&kids.length>=need?h("span",{class:"ok",text:"✓"}):null,
         ...kids.map(k=>h("span",{class:"kid"+(k.id===next?" next":""),title:AGE[k.age]||""},(k.id===next?"⭐ ":"")+(k.dead?"🪦 ":"")+(k.first||simName(k)))))));
   }
-  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:`${Object.keys(S).length} sims · from the game`})),
+  return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
     h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens));
 }
 function treePanel(p,all){
