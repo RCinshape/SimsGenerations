@@ -189,18 +189,23 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 .ft .ok{color:var(--green2)}.ft .gap{color:var(--muted);font-size:14px}
 .ft .roots{font-size:13px;color:var(--muted);padding:4px 0 2px 54px}
 /* Compact only the family panel; keep its generation button at a 44px target. */
-.compact-family .ph{padding:6px 10px}
-.compact-family .ph h2{font-size:15px}
-.compact-family .pb{padding:4px 10px;gap:4px}
-.compact-family .ft{padding:0 10px 4px}
-.compact-family .ft .gen{padding:3px 0 3px 52px}
-.compact-family .ft .gen:not(:last-child)::after{top:47px;bottom:-3px}
-.compact-family .ft .badge{top:3px}
-.compact-family .ft .sim{padding:2px 7px;font-size:14px;line-height:1.35}
-.compact-family .ft .sim.heir{margin-top:0}
-.compact-family .ft .kids{margin-top:3px;gap:4px}
-.compact-family .ft .kid{padding:1px 6px}
-.compact-family .ft .roots{padding:1px 0 1px 52px}
+/* Family preview: keep names prominent and actions quiet. */
+.compact-family .ph{padding:10px 14px;align-items:baseline;gap:4px 12px;background:var(--surface);color:var(--ink);border-bottom:1px solid var(--hair)}
+.compact-family .ph h2{font-size:16px;text-shadow:none}.compact-family .ph span{font-size:12px;color:var(--muted);opacity:1;overflow-wrap:anywhere}
+.compact-family .pb{padding:12px 14px}.compact-family .ft{padding:8px 14px 10px;gap:4px}
+.compact-family .ft .gen{padding:8px 0 8px 56px;min-width:0}.compact-family .ft .gen:not(:last-child)::after{top:52px;bottom:-8px}
+.compact-family .ft .badge{top:8px}.compact-family .ft .couple{align-items:baseline;gap:8px 14px;min-width:0}
+.compact-family .ft .sim{padding:0;margin:0;gap:0;align-items:flex-start;background:none;box-shadow:none;max-width:100%;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.compact-family .ft .sim.heir{background:none;box-shadow:none;font-size:16px}.compact-family .ft .sim span{font-size:12px;color:var(--muted)}
+.compact-family .ft .related{margin-top:6px;font-size:13px;color:var(--muted);overflow-wrap:anywhere}.compact-family .ft .related b{color:var(--ink)}
+.compact-family .ft .kids{margin-top:8px;gap:5px}.compact-family .ft .kid{padding:2px 8px;overflow-wrap:anywhere;max-width:100%}
+.compact-family .ft .roots{padding:4px 0 2px 56px;overflow-wrap:anywhere}
+.compact-family .family-footer{border-top:1px solid var(--hair);padding:10px 14px}
+.compact-family .family-actions{gap:8px}.compact-family .family-actions .btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:10px;font-size:14px;font-weight:800;line-height:1.25;box-shadow:none;text-align:center;max-width:100%}
+.compact-family .family-actions a.go,html[data-theme=dark] .compact-family .family-actions a.go{background:#d6eafb;color:#17324d;border:1px solid #9fc9e8}
+.compact-family .family-actions a.ghost,html[data-theme=dark] .compact-family .family-actions a.ghost{background:transparent;color:var(--ink);border:1px solid var(--muted)}
+@media(max-width:480px){.compact-family .family-actions{display:grid;grid-template-columns:minmax(0,1fr)}.compact-family .family-actions .btn{width:100%}}
+
 
 .stars{color:var(--gold);letter-spacing:1px;white-space:nowrap}
 
@@ -351,6 +356,7 @@ html[data-theme=dark] .btn.ghost{color:#8cc4f5}
 html[data-theme=dark] .item.big{background:linear-gradient(90deg,#3b3216,var(--surface))}
 html[data-theme=dark] .goal input{border-color:#4a6a88}
 html[data-theme=dark] .ft .sim.heir,html[data-theme=dark] .ft .kid.next{background:#3b3216}
+html[data-theme=dark] .compact-family .ft .sim.heir{background:none;box-shadow:none}
 html[data-theme=dark] .sheet{border-color:var(--hair)}
 html[data-theme=dark] .pill.done,html[data-theme=dark] .setstat.ok{background:#1f3a17;color:#8fd86a}
 html[data-theme=dark] .starsel button{color:#3b5570}
@@ -1371,12 +1377,12 @@ function showFamilyPage(owner){
 function familyPanel(name,title){
   const S=famOf(name);
   const launch=h("div",{class:"family-actions"},h("a",{class:"btn go",href:familyHref(name),target:"_blank",rel:"noopener noreferrer"},"Open family tree ↗"),originalTreeLink(name));
-  if(!Object.keys(S).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
+  if(!Object.keys(S).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."})),h("div",{class:"family-footer"},launch));
   const snapshot=syncOf(name), count=snapshot?snapshot.data.sims.filter(x=>x.inHousehold===true).length:0;
   const summary=snapshot?`${count} ${count===1?'sim':'sims'} in household · ${snapshot.at>0?'last recorded '+ago(snapshot.at):'recorded time unknown'}`:'Household count unavailable';
   const p=prog(name), {line,cur}=heirLine(name,S);
   if(!Object.keys(line).length) return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
-    h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family tree to browse their relationships.`}),launch));
+    h("div",{class:"pb"},h("p",{class:"muted",text:`Game data contains ${Object.keys(S).length} ${Object.keys(S).length===1?'sim':'sims'}. Open the family tree to browse their relationships.`})),h("div",{class:"family-footer"},launch));
   const gens=[];
   const first=Object.keys(line).map(Number).sort((a,b)=>a-b)[0];
   const root=S[line[first]], roots=(root&&root.parents||[]).map(i=>S[i]).filter(Boolean);
@@ -1385,18 +1391,21 @@ function familyPanel(name,title){
     const badge=h("button",{class:"badge",type:"button",style:`--gc:${g.c}`,title:`Gen ${n}: ${g.title}`,onclick:()=>openGen(n)},g.e,h("small",{text:"Gen "+n}));
     if(!x){ gens.push(h("div",{class:"gen"},badge,h("div",{class:"gap",text:(s.heir?s.heir+" · ":"")+(n===cur?"Not in the game data yet. Save the game once.":"Not in the game data.")}))); continue; }
     let partners=uni(x.partners,[]); x.children.forEach(c=>{ const k=S[c]; if(k) partners=uni(partners,k.parents.filter(q=>q!==x.id)); }); partners=partners.filter(q=>q!==x.id);
-    const pcards=partners.map(i=>S[i]).filter(Boolean).map(y=>simCard(y,"",y.id===x.spouse?"Partner":"Known relative / other parent"));
+    const spouse=x.spouse&&S[x.spouse];
+    const others=partners.filter(i=>!spouse||i!==spouse.id).map(i=>S[i]).filter(Boolean);
+    const person=(sim,role,cls)=>h("span",{class:"sim "+(cls||"")+(sim.dead?" dead":"")},h("b",{text:(sim.dead?"🪦 ":"")+simName(sim)}),h("span",{text:role}));
     const next=line[n+1];
     const kids=x.children.map(i=>S[i]).filter(Boolean).sort((a,b)=>AGE_ORDER.indexOf(a.age)-AGE_ORDER.indexOf(b.age));
     const need=g.kids||0;
     gens.push(h("div",{class:"gen"},badge,
-      h("div",{class:"couple"},simCard(x,"heir",n===1?"⭐ Founder":"⭐ Heir"),pcards.length?h("span",{class:"heart",text:"❤"}):null,...pcards),
+      h("div",{class:"couple"},person(x,n===1?"Founder":"Heir","heir"),spouse?person(spouse,"Partner"):null),
+      others.length?h("div",{class:"related"},h("span",{},"Known partners / other parents: "),h("b",{text:others.map(simName).join(", ")})):null,
       h("div",{class:"kids"},h("em",{text:kids.length?`Kids (${kids.length}${need?` of ${need}`:""})`:need?`Kids: 0 of ${need}`:"No kids yet"}),
         need&&kids.length>=need?h("span",{class:"ok",text:"✓"}):null,
         ...kids.map(k=>h("span",{class:"kid"+(k.id===next?" next":""),title:AGE[k.age]||""},(k.id===next?"⭐ ":"")+(k.dead?"🪦 ":"")+(k.first||simName(k)))))));
   }
   return h("div",{class:"panel compact-family"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`),h("span",{text:summary})),
-    h("div",{class:"pb"},launch),h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens));
+    h("div",{class:"ft"},roots.length?h("div",{class:"roots",text:"Founder's parents: "+roots.map(simName).join(" & ")}):null,...gens),h("div",{class:"family-footer"},launch));
 }
 function treePanel(p,all){
   const rows=GENS.filter(g=>all||g.n<=(p.current||1)).map(g=>{const s=genState(p,g.n);

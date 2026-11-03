@@ -122,6 +122,10 @@ test('family panel retains its controls and relationships in each content state'
  }
  const panel=w.eval("familyPanel('qa-alpha')");assert.match(panel.textContent,/Founder/);assert.match(panel.textContent,/Child/);assert.match(panel.textContent,/Partner/);assert.equal(panel.querySelector('.ft .badge').tagName,'BUTTON');
 });
+test('family preview distinguishes spouse, other reported relatives and children',async t=>{
+ const w=await load(t);w.eval("LIVE.fam['qa-alpha']={sims:{a:{f:'Founder',s:'b',ps:['b','c'],c:['d']},b:{f:'Spouse'},c:{f:'Other'},d:{f:'Child',p:['a','c']}}};LIVE.progress['qa-alpha']={name:'qa-alpha',current:1,gens:{1:{heirSimId:'a'}}}");
+ const panel=w.eval("familyPanel('qa-alpha')"),couple=panel.querySelector('.couple'),related=panel.querySelector('.related');assert.match(couple.textContent,/Founder/);assert.match(couple.textContent,/Spouse/);assert.doesNotMatch(couple.textContent,/Other/);assert.match(related.textContent,/Other/);assert.doesNotMatch(related.textContent,/Spouse/);assert.match(panel.querySelector('.kids').textContent,/Child/);assert.equal(panel.querySelector('.heart'),null);assert.ok(panel.querySelector('.ft').compareDocumentPosition(panel.querySelector('.family-footer'))&w.Node.DOCUMENT_POSITION_FOLLOWING);
+});
 test('vote form communicates the six-hour duration',async t=>{
  const w=await load(t);w.eval('renderVotes()');assert.ok([...w.document.querySelectorAll('#votes button')].some(b=>b.textContent==='Start the vote (6 hours)'));
 });
