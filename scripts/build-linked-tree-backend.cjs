@@ -9,7 +9,7 @@ function build(source) {
   const first = source.indexOf(marker);
   if (first < 0 || source.indexOf(marker, first + marker.length) >= 0) throw Error('linked tree route marker must occur exactly once');
   const module = fs.readFileSync(path.join(__dirname,'..','gas','LinkedTree.gs'),'utf8');
-  const output = source.slice(0,first) + marker + "\n      case 'linkedtree': return linkedTreeAction_(me);" + source.slice(first + marker.length) + '\n' + module + '\n';
+  const output = source.slice(0,first) + marker + "\n      case 'linkedtree': return linkedTreeAction_(me, body);" + source.slice(first + marker.length) + '\n' + module + '\n';
   new vm.Script(output,{filename:'linked-tree-candidate.gs'});
   return output;
 }

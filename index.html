@@ -1274,7 +1274,7 @@ function openFamilyExplorer(initialOwner){
   const btn=(text,fn)=>h('button',{class:'fx-button',type:'button',onclick:fn},text);
   const options=Array.from(new Set([owner,...(LIVE.roster||[]),ME].filter(Boolean)));
   const select=h('select',{'aria-label':'Player',onchange:e=>{owner=e.target.value;selected=null;build();}},...options.map(n=>h('option',{value:n,...(n===owner?{selected:true}:{})},n)));
-  header.append(btn('← Back',close),h('strong',{text:'Family explorer'}),select,btn('−',()=>zoom(.8)),btn('+',()=>zoom(1.25)),btn('Fit',fit),btn('Reset',()=>{scale=1;tx=20;ty=20;apply();}));
+  header.append(btn('← Back',close),h('strong',{text:'Family explorer'}),select,btn('Linked tree',()=>openLinkedTree(owner)),btn('−',()=>zoom(.8)),btn('+',()=>zoom(1.25)),btn('Fit',fit),btn('Reset',()=>{scale=1;tx=20;ty=20;apply();}));
   const filter=h('input',{type:'search',placeholder:'Filter family names','aria-label':'Filter family names',oninput:()=>{listPage=0;paintList();}});
   shell.append(header,note,photoNote,stage,drawer,h('details',{class:'fx-access'},h('summary',{},'Family list (keyboard accessible)'),filter,list));stage.append(world);document.body.append(shell);
   function apply(){world.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;viewportBudget=40;schedulePhotos();}
@@ -1327,7 +1327,7 @@ async function preparePortrait(file){
 
 let linkedTreeEpoch=0;
 function dismissLinkedTree(){linkedTreeEpoch++;document.querySelector('#linked-tree')?.remove();}
-async function openLinkedTree(){
+async function openLinkedTree(owner=ME){
   dismissLinkedTree(); const epoch=linkedTreeEpoch, actor=ME, generation=sessionGeneration, deployment=GID, opener=document.activeElement;
   const shell=h('div',{id:'linked-tree',class:'fx',role:'dialog','aria-modal':'true','aria-label':'Linked tree'});
   const close=()=>{dismissLinkedTree();if(opener?.isConnected)opener.focus();};
@@ -1338,7 +1338,7 @@ async function openLinkedTree(){
   shell.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();return;}if(e.key==='Tab'){const items=[...shell.querySelectorAll('button,a[href],iframe')];if(e.shiftKey&&document.activeElement===items[0]){e.preventDefault();items[items.length-1].focus();}else if(!e.shiftKey&&document.activeElement===items[items.length-1]){e.preventDefault();items[0].focus();}}});
   const current=()=>epoch===linkedTreeEpoch&&actor===ME&&generation===sessionGeneration&&deployment===GID&&shell.isConnected;
   try{
-    const result=await api('linkedtree',{});if(!current())return;
+    const result=await api('linkedtree',{owner});if(!current())return;
     const tree=result&&result.tree, valid=tree&&typeof tree.label==='string'&&tree.label.trim()&&tree.label.length<=80&&!/[\x00-\x1f\x7f]/.test(tree.label)&&typeof tree.url==='string'&&tree.url.length<=300&&!/[\x00-\x20\x7f]/.test(tree.url)&&/^https:\/\/app\.thesimstree\.com\/(?:crafted\/pages\/dynasty\/tree\/[0-9]+|public\/tree\/[A-Za-z0-9_-]+)$/.test(tree.url);
     if(!valid){content.textContent='No linked tree is available.';return;}
     content.textContent='';content.append(h('p',{text:tree.label}),h('p',{},'The tree may require sign-in or may not allow embedding.'),h('a',{href:tree.url,target:'_blank',rel:'noopener noreferrer',referrerpolicy:'no-referrer'},'Open in new tab'));
@@ -1347,7 +1347,7 @@ async function openLinkedTree(){
 }
 function familyPanel(name,title){
   const S=famOf(name);
-  const launch=h("span",{},h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree"),key(name)===key(ME)?h("button",{class:"btn ghost sm",type:"button",onclick:openLinkedTree},"Linked tree"):null);
+  const launch=h("span",{},h("button",{class:"btn ghost sm",type:"button",onclick:()=>openFamilyExplorer(name)},"Explore family tree"),h("button",{class:"btn ghost sm",type:"button",onclick:()=>openLinkedTree(name)},"Linked tree"));
   if(!Object.keys(S).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),h("div",{class:"pb"},h("p",{class:"muted",text:"No family data yet. Save the game to share it."}),launch));
   const p=prog(name), {line,cur}=heirLine(name,S);
   if(!Object.keys(line).length) return h("div",{class:"panel"},h("div",{class:"ph"},h("h2",{},title||`🌳 ${name}'s family tree`)),
