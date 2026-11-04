@@ -35,3 +35,6 @@ jobs:
       - name: Run helper recovery tests with Windows PowerShell
         shell: powershell
         run: ./tests/helper-recovery.test.ps1
+      - name: Run game portraits helper tests with Windows PowerShell
+        shell: powershell
+        run: ./tests/game-portraits.test.ps1

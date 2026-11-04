@@ -5,7 +5,7 @@
   so the app can tell the player what to do. Safe to run any number of times.
 #>
 $ErrorActionPreference = 'Stop'
-$UploaderVersion = 6
+$UploaderVersion = 7
 $PubN = 'a38bfc9356b75c8da62537cd06da09371a21620e058c7f1a70c1b10cb0f35942c28dc962e2063e989131b21e54a28d12aec35543184e06ffe108d2c621c0437c5265260536fc681f039639975755d3e77673042ad3c34b84afc1bac9e7f95f14a6880c80bb0d5c668055e694b3bf7eb641221e1a944d94d112a392570c7f2842d65692ae18322a9804de5061c0bc7b8abadd29bc616c959490459d6e02a0cfabc553f47817e91751ad2855f63f4ca29ca73fa83dd37c6ee0a0134296ba361318b9064de9933c322f086703d25b55b4387b1354bca387e4c688490c8c71afad5a592f8714671f88964eeca288086dc690fb1335ee9dc7bc1160c468a99f8bbbe96d7bb4af16a737d8646b926995a4e8127af755fd8ff6fc96bea4b16ec4731f9822cc05949b1bafa4fb4adf36ee9f45fb6fea8ab822a9835242c3e94aa29fba00f618e30a6789267bd4edb60036b0585f56e0e13b573967a34b5b51582a16c8c0668e810fbc13c5decc79a5438151e62f651299511be97dc00ac2716eaa675ed9'      # public key (hex) for signed updates; the build fills it in
 $Home2  = Join-Path $env:LOCALAPPDATA 'TwentyGenSync'
 $Config = Join-Path $Home2 'config.json'
@@ -182,6 +182,237 @@ function Do-Social($cfg, $sims) {
     $sj = '[' + ((@($sent) | ForEach-Object { ([string]$_) | ConvertTo-Json -Compress }) -join ',') + ']'
     [IO.File]::WriteAllText($sf, ('{"since":' + [double]$since + ',"shots":' + $sj + '}'), $Utf8)
 }
+# ---- game portraits: pictures of her sims from the game's own thumbnail cache (localthumbcache.package, DBPF 2) ----
+# At most once an hour, and only when that file changed. Any failure is logged and skipped: it never touches the normal upload.
+function Expand-Refpack([byte[]]$s) {            # EA "refpack" (QFS) decompressor
+    $p = 2
+    $flags = ([int]$s[0] -shl 8) -bor [int]$s[1]
+    $big = (($flags -band 0x8000) -ne 0)
+    if (($flags -band 0x0100) -ne 0) { if ($big) { $p += 4 } else { $p += 3 } }
+    [int64]$n = 0
+    if ($big) { $n = ([int64]$s[$p] -shl 24) -bor ([int64]$s[$p + 1] -shl 16) -bor ([int64]$s[$p + 2] -shl 8) -bor [int64]$s[$p + 3]; $p += 4 }
+    else { $n = ([int64]$s[$p] -shl 16) -bor ([int64]$s[$p + 1] -shl 8) -bor [int64]$s[$p + 2]; $p += 3 }
+    if ($n -le 0 -or $n -gt 67108864) { throw 'refpack: bad size' }
+    $o = New-Object byte[] ([int]$n)
+    $q = 0; $len = $s.Length; $size = [int]$n
+    while ($p -lt $len) {
+        $c = [int]$s[$p]; $p++
+        $nl = 0; $ln = 0; $off = 0
+        if ($c -lt 0x80) {
+            $b1 = [int]$s[$p]; $p++
+            $nl = $c -band 3; $ln = (($c -band 0x1c) -shr 2) + 3; $off = (($c -band 0x60) -shl 3) + $b1 + 1
+        } elseif ($c -lt 0xc0) {
+            $b1 = [int]$s[$p]; $b2 = [int]$s[$p + 1]; $p += 2
+            $nl = $b1 -shr 6; $ln = ($c -band 0x3f) + 4; $off = (($b1 -band 0x3f) -shl 8) + $b2 + 1
+        } elseif ($c -lt 0xe0) {
+            $b1 = [int]$s[$p]; $b2 = [int]$s[$p + 1]; $b3 = [int]$s[$p + 2]; $p += 3
+            $nl = $c -band 3; $ln = (($c -band 0x0c) -shl 6) + $b3 + 5; $off = (($c -band 0x10) -shl 12) + ($b1 -shl 8) + $b2 + 1
+        } elseif ($c -lt 0xfc) {
+            $nl = (($c -band 0x1f) -shl 2) + 4
+        } else {
+            $nl = $c -band 3
+        }
+        if ($nl -gt 0) {
+            if (($p + $nl) -gt $len -or ($q + $nl) -gt $size) { throw 'refpack: literal out of range' }
+            [Array]::Copy($s, $p, $o, $q, $nl); $p += $nl; $q += $nl
+        }
+        if ($ln -gt 0) {
+            if ($off -gt $q -or ($q + $ln) -gt $size) { throw 'refpack: copy out of range' }
+            for ($i = 0; $i -lt $ln; $i++) { $o[$q] = $o[$q - $off]; $q++ }
+        }
+        if ($c -ge 0xfc) { break }
+    }
+    if ($q -ne $size) { throw 'refpack: short output' }
+    return ,$o
+}
+function Read-Exact([IO.Stream]$fs, [int64]$pos, [int]$count) {
+    if ($count -lt 0 -or $pos -lt 0 -or ($pos + $count) -gt $fs.Length) { throw 'read outside the file' }
+    [void]$fs.Seek($pos, [IO.SeekOrigin]::Begin)
+    $buf = New-Object byte[] $count; $got = 0
+    while ($got -lt $count) { $r = $fs.Read($buf, $got, $count - $got); if ($r -le 0) { throw 'short read' }; $got += $r }
+    return ,$buf
+}
+function Get-DbpfIndex([IO.Stream]$fs) {         # key "type:group:instance" -> @{ t; off; size; comp }
+    $h = Read-Exact $fs 0 96
+    if ([Text.Encoding]::ASCII.GetString($h, 0, 4) -ne 'DBPF') { throw 'not a DBPF package' }
+    $cnt = [int64][BitConverter]::ToUInt32($h, 36)
+    $ipos = [int64][BitConverter]::ToUInt32($h, 64)
+    if ($ipos -eq 0) { $ipos = [int64][BitConverter]::ToUInt64($h, 0x28) }
+    if ($cnt -gt 300000 -or $ipos -le 0 -or $ipos -ge $fs.Length) { throw 'bad package index' }
+    $take = [int][Math]::Min($cnt * 32 + 16, $fs.Length - $ipos)
+    $d = Read-Exact $fs $ipos $take
+    $flags = [BitConverter]::ToUInt32($d, 0); $p = 4
+    $const = New-Object 'uint32[]' 3; $isConst = New-Object 'bool[]' 3
+    for ($b = 0; $b -lt 3; $b++) { if (($flags -shr $b) -band 1) { $const[$b] = [BitConverter]::ToUInt32($d, $p); $isConst[$b] = $true; $p += 4 } }
+    $idx = @{}
+    for ($i = 0; $i -lt $cnt; $i++) {
+        $v = New-Object 'uint32[]' 3
+        for ($b = 0; $b -lt 3; $b++) { if ($isConst[$b]) { $v[$b] = $const[$b] } else { $v[$b] = [BitConverter]::ToUInt32($d, $p); $p += 4 } }
+        $il = [BitConverter]::ToUInt32($d, $p); $off = [BitConverter]::ToUInt32($d, $p + 4); $sz = [BitConverter]::ToUInt32($d, $p + 8)
+        $comp = [BitConverter]::ToUInt16($d, $p + 16); $p += 20
+        $inst = ([uint64]$v[2] -shl 32) -bor [uint64]$il
+        $key = '{0:x8}:{1:x8}:{2:x16}' -f $v[0], $v[1], $inst
+        $idx[$key] = @{ t = $v[0]; off = [int64]$off; size = [int64]($sz -band 0x7fffffff); comp = [int]$comp }
+    }
+    return $idx
+}
+function Get-DbpfResource([IO.Stream]$fs, $e) {
+    $raw = Read-Exact $fs $e.off ([int]$e.size)
+    if ($e.comp -eq 0) { return ,$raw }
+    if ($e.comp -eq 0xFFFF -or $e.comp -eq 0xFFFE) { return ,(Expand-Refpack $raw) }
+    if ($e.comp -eq 0x5A42) {
+        $ms = New-Object IO.MemoryStream (, $raw); [void]$ms.Seek(2, [IO.SeekOrigin]::Begin)
+        $ds = New-Object IO.Compression.DeflateStream ($ms, [IO.Compression.CompressionMode]::Decompress)
+        $out = New-Object IO.MemoryStream; $ds.CopyTo($out); $ds.Dispose()
+        return ,$out.ToArray()
+    }
+    throw ('unknown compression 0x{0:x}' -f $e.comp)
+}
+function Get-JpegSize([byte[]]$b) {              # @(width, height) from the first SOF marker, or $null when it is not a JPEG
+    if ($b.Length -lt 12 -or $b[0] -ne 0xFF -or $b[1] -ne 0xD8 -or $b[2] -ne 0xFF) { return $null }
+    $p = 2
+    while (($p + 9) -lt $b.Length) {
+        if ($b[$p] -ne 0xFF) { return $null }
+        $m = [int]$b[$p + 1]
+        if ($m -eq 0xFF) { $p++; continue }
+        if ($m -ge 0xC0 -and $m -le 0xCF -and $m -ne 0xC4 -and $m -ne 0xC8 -and $m -ne 0xCC) {
+            return @((([int]$b[$p + 7] -shl 8) -bor [int]$b[$p + 8]), (([int]$b[$p + 5] -shl 8) -bor [int]$b[$p + 6]))
+        }
+        if ($m -eq 0xD8 -or ($m -ge 0xD0 -and $m -le 0xD7) -or $m -eq 0x01) { $p += 2; continue }
+        $p += 2 + (([int]$b[$p + 2] -shl 8) -bor [int]$b[$p + 3])
+    }
+    return $null
+}
+function Crop-JpegCentre([byte[]]$jpg, [double]$frac, [int]$maxBytes) {     # centre 70% (drops the white corners); $null when System.Drawing is not usable
+    Add-Type -AssemblyName System.Drawing
+    $img = $null; $bmp = $null; $g = $null
+    try {
+        $img = [System.Drawing.Image]::FromStream((New-Object IO.MemoryStream (, $jpg)))
+        $cw = [int][Math]::Round($img.Width * $frac); $ch = [int][Math]::Round($img.Height * $frac)
+        $x = [int][Math]::Floor(($img.Width - $cw) / 2); $y = [int][Math]::Floor(($img.Height - $ch) / 2)
+        $bmp = New-Object System.Drawing.Bitmap $cw, $ch
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $g.DrawImage($img, (New-Object System.Drawing.Rectangle 0, 0, $cw, $ch), $x, $y, $cw, $ch, [System.Drawing.GraphicsUnit]::Pixel)
+        $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' } | Select-Object -First 1
+        foreach ($qual in 90, 82, 72, 60) {
+            $ep = New-Object System.Drawing.Imaging.EncoderParameters 1
+            $ep.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), ([long]$qual)
+            $ms = New-Object IO.MemoryStream; $bmp.Save($ms, $codec, $ep)
+            if ($ms.Length -le $maxBytes) { return ,$ms.ToArray() }
+        }
+        return $null
+    } finally { if ($g) { $g.Dispose() }; if ($bmp) { $bmp.Dispose() }; if ($img) { $img.Dispose() } }
+}
+function Get-GamePortraitCandidates([string]$pkg, [string[]]$wanted, [int]$maxBytes = 60000) {
+    $want = @{}; foreach ($w in $wanted) { if ($w) { $want[$w] = $true } }
+    $fs = [IO.File]::Open($pkg, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+    try {
+        $idx = Get-DbpfIndex $fs
+        $owners = @{}                              # sim id -> list of index keys
+        foreach ($mk in @($idx.Keys | Where-Object { $_.StartsWith('b93a9915:') })) {
+            $m = $null; try { $m = Get-DbpfResource $fs $idx[$mk] } catch { Log ("portraits: manifest unreadable: " + $_.Exception.Message); continue }
+            $last = $m.Length - 45
+            for ($p = 0; $p -le $last; $p++) {
+                if ($m[$p] -ne $m[$p + 17]) { continue }
+                $same = $true
+                for ($j = 1; $j -lt 12; $j++) { if ($m[$p + $j] -ne $m[$p + 17 + $j]) { $same = $false; break } }
+                if (-not $same) { continue }
+                $owner = [BitConverter]::ToUInt64($m, $p).ToString()
+                if (-not $want.ContainsKey($owner)) { continue }
+                $key = '{0:x8}:{1:x8}:{2:x16}' -f [BitConverter]::ToUInt32($m, $p + 29), [BitConverter]::ToUInt32($m, $p + 33), [BitConverter]::ToUInt64($m, $p + 37)
+                if (-not $idx.ContainsKey($key)) { continue }
+                if (-not $owners.ContainsKey($owner)) { $owners[$owner] = New-Object 'System.Collections.Generic.List[string]' }
+                if (-not $owners[$owner].Contains($key)) { $owners[$owner].Add($key) }
+            }
+        }
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $res = New-Object 'System.Collections.Generic.List[object]'
+        foreach ($id in $wanted) {
+            if (-not $owners.ContainsKey($id)) { continue }
+            try {
+                $best = $null                      # prefer the clean head icons (E18CAEE2), else the 256 px bust (needs a crop); the largest of its kind
+                foreach ($group in @('e18caee2'), @('16ccf748', '4d5b0931')) {
+                    foreach ($key in $owners[$id]) {
+                        if ($group -notcontains $key.Substring(0, 8)) { continue }
+                        $by = $null; try { $by = Get-DbpfResource $fs $idx[$key] } catch { continue }
+                        $sz = Get-JpegSize $by; if (-not $sz) { continue }
+                        $area = $sz[0] * $sz[1]
+                        if (-not $best -or $area -gt $best.area) { $best = @{ kind = $group[0]; key = $key; bytes = $by; w = $sz[0]; h = $sz[1]; area = $area } }
+                    }
+                    if ($best) { break }
+                }
+                if (-not $best) { continue }
+                $bytes = $best.bytes; $w = $best.w; $h = $best.h
+                if ($best.kind -ne 'e18caee2') {
+                    $c = $null; try { $c = Crop-JpegCentre $bytes 0.7 $maxBytes } catch { $c = $null }
+                    if ($c) { $bytes = $c; $sz2 = Get-JpegSize $bytes; if ($sz2) { $w = $sz2[0]; $h = $sz2[1] } }
+                }
+                $n = $bytes.Length
+                if ($n -lt 4 -or $n -gt $maxBytes -or $bytes[$n - 2] -ne 0xFF -or $bytes[$n - 1] -ne 0xD9) { continue }
+                $hex = ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').ToLower()
+                $res.Add([pscustomobject]@{ simId = $id; key = $best.key; bytes = $bytes; w = $w; h = $h; sha = $hex })
+            } catch { Log ("portraits: sim $id skipped: " + $_.Exception.Message) }
+        }
+        $sha.Dispose()
+        return $res.ToArray()
+    } finally { $fs.Dispose() }
+}
+function Post-Relay($cfg, [string]$body, [int]$timeout = 120) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    return Invoke-RestMethod -Method Post -Uri $cfg.u -Body ($Utf8.GetBytes($body)) -ContentType 'application/json; charset=utf-8' -TimeoutSec $timeout
+}
+function Save-PortraitState([string]$file, [string]$mtime, [bool]$pending, $sent) {
+    $names = @($sent.Keys | Select-Object -Last 1500)
+    $pairs = @($names | ForEach-Object { ([string]$_ | ConvertTo-Json -Compress) + ':' + ([string]$sent[$_] | ConvertTo-Json -Compress) })
+    $json = '{"mtime":"' + $mtime + '","at":"' + [DateTime]::UtcNow.Ticks + '","pending":' + $pending.ToString().ToLower() + ',"sent":{' + ($pairs -join ',') + '}}'
+    [IO.File]::WriteAllText($file, $json, $Utf8)
+}
+function Do-GamePortraits($cfg, $sims, [string]$snapText, [int]$maxItems = 6) {
+    if (-not $sims -or -not $snapText) { return }
+    $pkg = Join-Path $sims 'localthumbcache.package'
+    if (-not (Test-Path -LiteralPath $pkg)) { return }
+    $sf = Join-Path $Home2 'portraits.json'; $so = $null
+    if (Test-Path -LiteralPath $sf) { try { $so = [IO.File]::ReadAllText($sf, $Utf8) | ConvertFrom-Json } catch {} }
+    $mtime = [string](Get-Item -LiteralPath $pkg).LastWriteTimeUtc.Ticks
+    $now = [DateTime]::UtcNow.Ticks
+    if ($so -and $so.at) {
+        $age = $now - [int64]$so.at
+        if ($age -ge 0 -and $age -lt 36000000000) { return }                         # at most once an hour
+    }
+    $pending = [bool]($so -and $so.pending)
+    if ($so -and [string]$so.mtime -eq $mtime -and -not $pending) { return }       # the cache did not change
+    $sent = @{}; if ($so -and $so.sent) { foreach ($pr in $so.sent.PSObject.Properties) { $sent[$pr.Name] = [string]$pr.Value } }
+    try {
+        $ids = @(); $snap = $snapText | ConvertFrom-Json
+        if ($snap.sims) { $ids = @($snap.sims | ForEach-Object { [string]$_.id } | Where-Object { $_ -match '^\d{1,24}$' } | Select-Object -Unique) }
+        $cands = @(); if ($ids.Count) { $cands = @(Get-GamePortraitCandidates $pkg $ids) }
+        $todo = @($cands | Where-Object { $sent[$_.simId] -ne $_.sha })
+        $batch = @($todo | Select-Object -First $maxItems)
+        $stop = $false
+        if ($batch.Count) {
+            $items = @($batch | ForEach-Object {
+                '{"simId":"' + $_.simId + '","img":"' + [Convert]::ToBase64String($_.bytes) + '","w":' + $_.w + ',"h":' + $_.h + ',"key":"' + $_.key + '","sha":"' + $_.sha + '"}' })
+            $body = '{"n":' + ($cfg.n | ConvertTo-Json -Compress) + ',"k":' + ($cfg.k | ConvertTo-Json -Compress) + ',"want":"portraits","items":[' + ($items -join ',') + ']}'
+            $r = Post-Relay $cfg $body 120
+            if (-not $r -or -not $r.ok) { throw ('relay said: ' + $(if ($r) { [string]$r.error } else { 'nothing' })) }
+            $tally = @{}
+            foreach ($x in @($r.results)) {
+                $st = [string]$x.st; if ($tally.ContainsKey($st)) { $tally[$st]++ } else { $tally[$st] = 1 }
+                $it = $batch | Where-Object { $_.simId -eq [string]$x.simId } | Select-Object -First 1
+                if ($it -and @('limit', 'day_limit') -notcontains $st) { $sent[$it.simId] = $it.sha }
+                if ($st -eq 'day_limit' -or $st -eq 'limit') { $stop = $true }
+            }
+            Log ('portraits: sent ' + $batch.Count + ' (' + (($tally.Keys | Sort-Object | ForEach-Object { $_ + ' ' + $tally[$_] }) -join ', ') + '), ' + [Math]::Max(0, $todo.Count - $batch.Count) + ' waiting')
+        } else { Log ('portraits: nothing new (' + $cands.Count + ' pictures found)') }
+        $left = $todo.Count - $batch.Count
+        Save-PortraitState $sf $mtime ($left -gt 0 -or $stop) $sent
+    } catch {
+        Log ('portraits failed: ' + $_.Exception.Message)
+        try { Save-PortraitState $sf ([string]$(if ($so) { $so.mtime } else { '' })) $true $sent } catch {}     # try again in an hour
+    }
+}
+# ---- end of game portraits ----
 function Get-IniFlag([string]$ini, [string]$key) {
     if (-not (Test-Path -LiteralPath $ini)) { return $null }
     $m = [regex]::Match((Get-Content -LiteralPath $ini -Raw), "(?im)^\s*$key\s*=\s*(\d+)")
@@ -208,6 +439,7 @@ try {
     $modLog = if ($sims) { Join-Path $sims 'LegacySync\mod.log' } else { '' }
     $st = $null; if (Test-Path -LiteralPath $State) { try { $st = [IO.File]::ReadAllText($State, $Utf8) | ConvertFrom-Json } catch {} }
     try { Do-Social $cfg $sims } catch { Log ("social failed: " + $_.Exception.Message) }
+    try { Do-GamePortraits $cfg $sims $text } catch { Log ("portraits failed: " + $_.Exception.Message) }
     $lines = @(); $logCount = 0
     if ($modLog -and (Test-Path -LiteralPath $modLog)) {
         $allL = @(Get-Content -LiteralPath $modLog -Encoding UTF8); $logCount = $allL.Count
