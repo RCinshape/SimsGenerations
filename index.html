@@ -7,7 +7,8 @@
 <title>The Twenty-Gen Legacy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap"></noscript>
 <script>/* dark mode: one on/off switch. Before she ever touches it, it follows the device. */(function(){var K="tg-theme",m=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)");function dark(){var p;try{p=localStorage.getItem(K);}catch(e){}return p==="dark"||(p!=="light"&&!!(m&&m.matches));}function apply(){var d=dark();document.documentElement.setAttribute("data-theme",d?"dark":"light");var b=document.getElementById("themeBtn");if(b){b.setAttribute("role","switch");b.setAttribute("aria-checked",d?"true":"false");b.setAttribute("aria-label","Dark mode");b.title="Dark mode: "+(d?"on":"off");}}window.tgTheme=function(){try{localStorage.setItem(K,dark()?"light":"dark");}catch(e){}apply();};if(m&&m.addEventListener)m.addEventListener("change",apply);apply();document.addEventListener("DOMContentLoaded",function(){var b=document.getElementById("themeBtn");if(b)b.addEventListener("click",window.tgTheme);apply();});})();</script>
 <style>
 /* Sims-style skin. Three tabs: Neighborhood (everyone), My legacy (you), Plan (all 20 gens). Each heir has a colour; each girl has a colour. */
@@ -885,10 +886,10 @@ function pull(){
   flight.promise=pullData(generation,actor).then(value=>{if(generation===sessionGeneration&&actor===ME&&retryCount===attempt) recoverySuccess(); return value;},e=>{if(generation===sessionGeneration&&actor===ME) recoveryFailure(e); throw e;}).finally(()=>{if(pullFlight===flight) pullFlight=null;});
   pullFlight=flight; return flight.promise;
 }
-async function pullData(generation,actor){
+async function pullData(generation,actor,initialLive){
   const have={}; Object.entries(LIVE.sync||{}).forEach(([k,a])=>a.forEach(r=>{ have[k+"|"+r.hh]=r.at; }));
   Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ have["fam|"+k]=f.at; });
-  const d=await api("live",{have});
+  const d=initialLive||await api("live",{have});
   if(generation!==sessionGeneration||actor!==ME) throw sessionChanged();
   if(ME&&d.me&&key(d.me)!==key(ME)){ loggedOut("Your account changed. Choose your name again."); throw sessionChanged(); }
   const prog={};(d.progress||[]).forEach(w=>{if(w&&w.name&&w.data){const p=Object.assign({},w.data,{name:w.name});prog[key(w.name)]=p;}});
@@ -1627,7 +1628,7 @@ function setupStatus(){ const el=$("#setupStatus"); if(!el) return; const on=gam
   el.textContent=on?[contact?`Last server contact ${ago(contact)}`:"No server contact recorded",latest?`Last changed game save ${ago(latest.at)}`:"No changed game save recorded"].join(" · "):"⏳ Waiting for the first server contact or game save.";
   el.classList.toggle("ok",on);
   if(on&&!$("#setupGo")) el.after(h("button",{class:"btn go big",type:"button",id:"setupGo",onclick:leaveSetup},"Go to my legacy →")); }
-async function enter(name,fresh,switched){
+async function enter(name,fresh,switched,initialLive){
   if(typeof dismissLinkedTree==="function")dismissLinkedTree(); persistTabRecovery(ME);sessionGeneration++; resetRecovery(); clearTimeout(saveTimer); dirty=false;progressConflict=null;$("#conflictNotice")?.remove();
   const generation=sessionGeneration;
   ME=name; ls.set("tg-last",ME); MINE=null; scheduleRecovery(GAS?20000:15000);
@@ -1645,7 +1646,7 @@ async function enter(name,fresh,switched){
   $("#gate").hidden=true; $("#gateMsg").textContent=""; $("#tabs").hidden=false;
   const mb=$("#meBtn"); mb.hidden=false; mb.innerHTML=""; mb.append(avatar(ME));
   mb.onclick=()=>openAccount();
-  let familyLoaded=true;try{ await pull(); }catch(e){familyLoaded=false;}
+  let familyLoaded=true;try{ if(initialLive)await pullData(generation,name,initialLive);else await pull(); }catch(e){familyLoaded=false;}
   if(generation!==sessionGeneration||key(ME)!==key(name)) return;
   if(dirty) flush();
   if(familyRoute()){if(familyLoaded)showFamilyPage(familyRoute());else{TAB='family';['hood','me','plan','family'].forEach(v=>$('#v-'+v).hidden=v!=='family');$('#v-family').textContent='Could not load family data. Reconnecting…';}return;}
@@ -1686,7 +1687,15 @@ window.addEventListener("online",()=>scheduleRecovery(0));
 
 (async()=>{
   // Already logged in on this device? Then go straight in, even from an old first-time link or a bookmark of it.
-  try{ const d=await api("whoami"); if(NEXT==="questions"){location.href="/questions";return;} goHome(); enter(d.name); return; }
+  if(GAS&&!SESSION_TOKEN){authScreen("login");return;}
+  try{
+    // The live response already authenticates the token and identifies its owner.
+    // Reuse it rather than waiting for whoami and then fetching the same session again.
+    const initialLive=GAS&&SESSION_TOKEN&&NEXT!=="questions"?await api("live",{have:{}}):null;
+    const d=initialLive?{name:initialLive.me}:await api("whoami");
+    if(typeof d.name!=="string"||!d.name.trim())throw new Error("401");
+    if(NEXT==="questions"){location.href="/questions";return;} goHome(); enter(d.name,false,false,initialLive); return;
+  }
   catch(e){ if(e.message==="nolink"){ authScreen("login",errText(e)); return; } if(INVITE&&e.message!=="offline"){ authScreen("invite"); return; } authScreen("login", e.message==="offline"?errText(e):""); }
 })();
 </script>
