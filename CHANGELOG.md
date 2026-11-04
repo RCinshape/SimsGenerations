@@ -8,6 +8,25 @@ Discord notices follow [the release update standard](docs/discord-updates.md). A
 
 No additional production release is asserted here. Collect the next verified batch before preparing a notice.
 
+## 2026-11-04.2 — 4 November 2026
+
+### Added
+
+- New family tree page in the style of the reference: the chosen sim in the middle, parents above, partners stacked with a status symbol (💍 married, ❤️ dating, 💔 ex or divorced, 🖤 widowed, 🤝 co-parent), children grouped by their exact parents, "Open subtree" on a partner, heir line, search, a sim card side panel, an edit mode with dotted outlines, Add parent / partner / child / friend / pet pickers, "+ Add Sim", hide, undo and "use game value". A floating 🌳 bubble on every page opens the tree in a new tab.
+- Owner edits are stored on top of the game data and survive every sync; only the tree's owner can edit (checked on the server).
+- The game mod now reports romantic statuses (married, engaged, dating, divorced, ex, widowed) and adoption, so exes and widows come from the game instead of guesses.
+- The PC helper reads sim pictures from the game's own thumbnail cache and uploads them; a picture a player uploaded herself is never replaced.
+
+### Improved
+
+- Faster app: the page shows the last data at once, the server keeps one ready-made answer, and a 5-minute timer keeps it awake.
+
+### Rollout and scope
+
+Backend production version 25. App pages from `main`. Signed collector/helper update v10 published to everyone; it arrives at the next sync and starts at the next game restart. Romantic statuses and game pictures appear after that. Not yet checked in a real game.
+
+**Announcement status:** held. The current instruction is not to post.
+
 ## 2026-11-04.1 — 4 November 2026
 
 ### Added
