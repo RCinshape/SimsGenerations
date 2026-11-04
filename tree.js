@@ -488,19 +488,18 @@ function drawWires(st){
       return {col,head,hr,u,pid,c,status:head.dataset.status||'',cx:hr.cx};
     });
     const colTop=Math.min(...info.map(i=>i.hr.t));
-    const busY=Math.max(fb+16,colTop-54);
+    const busY=Math.max(fb+16,colTop-54),spineX=14;
     info.forEach((i,k)=>{
       const g=group('tv-couple'+(i.pid?'':' tv-hang'),{'data-with':i.pid||(i.u?i.u.dataset.with:''),'data-status':i.status,stroke:i.pid?i.c:i.c});
       i.g=g;
-      /* the drop from the bus (desktop) or a short stub (phone) into the partner, with the status on it */
-      let from;
-      if(!narrow)from=[i.cx,busY];
-      else if(k===0)from=[fp.cx,fb+2];
-      else from=[i.cx,i.hr.t-40];
-      const to=[i.cx,i.hr.t-1],mid=[(from[0]+to[0])/2,(from[1]+to[1])/2];
+      /* desktop: a drop from the bus; phone: a short branch from the left spine. The status badge sits on it. */
+      let from,to;
+      if(!narrow){from=[i.cx,busY];to=[i.cx,i.hr.t-1];}
+      else{from=[spineX,i.hr.cy];to=[i.hr.l-1,i.hr.cy];}
+      const mid=[(from[0]+to[0])/2,(from[1]+to[1])/2];
       if(i.pid)statusLine(g,[from,to],i.status);
       else line(g,[from,to],{cls:'tv-link is-solid',kind:'solid',w:2.5,op:.6});
-      if(narrow&&k>0)g.append(sv('circle',{cx:r1(from[0]),cy:r1(from[1]),r:4.5,fill:i.c,stroke:'none'}));
+      if(narrow)g.append(sv('circle',{cx:r1(from[0]),cy:r1(from[1]),r:4.5,fill:i.c,stroke:'none'}));
       if(i.pid)place(i.head.querySelector('.tv-status'),i.head,mid[0],mid[1]);
       /* partner -> this couple's children */
       if(!i.u)return;
@@ -517,7 +516,10 @@ function drawWires(st){
       /* two per row: one short trunk between the pair joins the rows */
       if(rows.length>1)line(g,[[i.cx,lr.cy],[i.cx,bars[bars.length-1]]]);
     });
-    if(!narrow){
+    if(narrow){
+      const g=group('tv-bus-wire',{'data-kind':'spine'}),lastY=Math.max(...info.map(i=>i.hr.cy));
+      line(g,[[fp.cx,fb+2],[fp.cx,fb+16],[spineX,fb+16],[spineX,lastY]],{r:10});
+    }else{
       const g=group('tv-bus-wire',{'data-kind':'bus'}),xs=[fp.cx,...info.map(i=>i.cx)];
       line(g,[[fp.cx,fb+2],[fp.cx,busY]]);
       if(Math.max(...xs)-Math.min(...xs)>1)line(g,[[Math.min(...xs),busY],[Math.max(...xs),busY]]);
