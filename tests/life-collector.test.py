@@ -183,7 +183,7 @@ class CollectorTest(unittest.TestCase):
 
     # ---- v2: name fix, species, cause
     def load_real_sync(self):
-        src=(pathlib.Path(__file__).parent.parent/'mod/twentygen_sync.py').read_text(encoding='utf8')
+        src=(pathlib.Path(__file__).parent.parent/'sync/mod/twentygen_sync.py').read_text(encoding='utf8')
         ns={'__file__':str(pathlib.Path(self.temp.name)/'x.py'),'__name__':'real_sync_under_test'}
         exec(compile(src.split('# ---------------------------------------------------------------- start')[0],'sync','exec'),ns)
         return ns
