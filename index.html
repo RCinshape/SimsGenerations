@@ -1289,13 +1289,35 @@ function familyGraph(source){
   let cyclic=selfCycle;const visiting=new Set(),depth={};
   function rank(id){if(depth[id]!=null)return depth[id];if(visiting.has(id)){cyclic=true;return 0;}visiting.add(id);let d=0;parents[id].sort().forEach(p=>{const next=rank(p)+1;if(next>20)rankLimited=true;d=Math.max(d,Math.min(20,next));});visiting.delete(id);return depth[id]=d;}
   keys.forEach(rank);
-  // Move partners together when doing so does not hide their own parentage.
+  const partnersOf=id=>edges.filter(e=>e.type==='partner'&&(e.a===id||e.b===id)).map(e=>e.a===id?e.b:e.a);
+  // A sim who married in has no parents here: put them on their partner's row, not with the ancestors.
+  for(let pass=0;pass<3;pass++)keys.forEach(id=>{if(parents[id].length)return;const d=Math.max(depth[id],...partnersOf(id).map(p=>depth[p]));if(d<=20)depth[id]=d;});
+  // Family units: the children of one exact set of parents. A partner's children with someone else are a different unit.
+  const unitMap=new Map();keys.forEach(id=>{const ps=parents[id].filter(p=>nodes[p]).sort();if(!ps.length)return;const k=ps.join('|');if(!unitMap.has(k))unitMap.set(k,{parents:ps,children:[]});unitMap.get(k).children.push(id);});
+  const units=[...unitMap.values()];const unitOf={};units.forEach((u,i)=>u.children.forEach(c=>unitOf[c]=i));
   const levels={};keys.forEach(id=>(levels[depth[id]]||(levels[depth[id]]=[])).push(id));
-  for(const list of Object.values(levels)){const remaining=new Set(list), ordered=[];for(const id of list){if(!remaining.delete(id))continue;ordered.push(id);edges.filter(e=>e.type==='partner'&&(e.a===id||e.b===id)).forEach(e=>{const other=e.a===id?e.b:e.a;if(remaining.delete(other))ordered.push(other);});}list.splice(0,list.length,...ordered);}
-  const maxCols=Math.max(1,...Object.values(levels).map(a=>a.length));
-  Object.entries(levels).forEach(([level,list])=>list.forEach((id,i)=>{nodes[id].x=70+(maxCols-list.length)*100+i*200;nodes[id].y=45+Number(level)*180;}));
-  return {nodes,edges,cyclic,rankLimited,truncated:allIds.length>ids.length||Object.keys(nodes).length>=1000,width:Math.max(400,maxCols*200+60),height:Math.max(250,(Math.max(0,...Object.keys(levels).map(Number))+1)*180+50)};
+  const order=Object.keys(levels).map(Number).sort((a,b)=>a-b);
+  const center=id=>{const ps=parents[id].filter(p=>nodes[p]&&nodes[p].x!=null);return ps.length?ps.reduce((t,p)=>t+nodes[p].x,0)/ps.length:null;};
+  order.forEach((level,li)=>{
+    let list=levels[level];
+    if(li>0){
+      // Children sit under their own parents; a married-in partner sits next to their partner.
+      const key=id=>{let c=center(id);if(c==null){const mate=partnersOf(id).find(p=>levels[level].includes(p)&&center(p)!=null);c=mate?center(mate)+0.5:1e9;}return c;};
+      list=list.slice().sort((a,b)=>key(a)-key(b)||(unitOf[a]??1e9)-(unitOf[b]??1e9)||(a<b?-1:a>b?1:0));
+    }
+    const remaining=new Set(list),ordered=[];for(const id of list){if(!remaining.delete(id))continue;ordered.push(id);partnersOf(id).forEach(o=>{if(remaining.delete(o))ordered.push(o);});}
+    levels[level]=ordered;
+    let prev=-1e9;const y=45+level*250;
+    ordered.forEach((id,i)=>{let want=li===0?i*200:prev+200;
+      if(li>0){const u=units[unitOf[id]];if(u&&parents[id].length){const sib=u.children.filter(c=>ordered.includes(c));const c=center(id);if(c!=null)want=c-(sib.length-1)*100+sib.indexOf(id)*200;}
+        else{const mate=partnersOf(id).find(p=>nodes[p].x!=null&&depth[p]===level);if(mate!=null)want=nodes[mate].x+200;}}
+      const x=Math.max(want,prev+200);nodes[id].x=x;nodes[id].y=y;prev=x;});
+  });
+  const xs=keys.map(id=>nodes[id].x),minX=Math.min(...xs),maxX=Math.max(...xs);keys.forEach(id=>{nodes[id].x+=70-minX;});
+  const maxLevel=Math.max(0,...order);
+  return {nodes,edges,units,cyclic,rankLimited,truncated:allIds.length>ids.length||Object.keys(nodes).length>=1000,width:Math.max(400,maxX-minX+200),height:Math.max(250,(maxLevel+1)*250+50)};
 }
+const UNIT_COLORS=['#3a9ae8','#e0779f','#4fae6a','#e09a3a','#8b6fd6','#2bb5b0'];   // each family unit has its own line colour
 let familyEpoch=0;
 const familyPhotoVersions=new Map(), familyPhotoWrites=new Set(), familyReadHistory=new Map(), familyPortraitCache=new Map();
 function dismissFamilyExplorer(){familyEpoch++;const explorer=document.querySelector('#family-explorer');explorer?._dispose?.();explorer?.remove();}
@@ -1327,7 +1349,16 @@ function openFamilyExplorer(initialOwner,page=false){
   stage.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){const d=distance();if(drag&&drag.dist)zoom(d/drag.dist);drag={dist:d};}else if(drag&&drag.x!=null){tx=drag.tx+e.clientX-drag.x;ty=drag.ty+e.clientY-drag.y;apply();}});
   const up=e=>{pointers.delete(e.pointerId);drag=null;};stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
   function line(svg,a,b,type){const p=document.createElementNS('http://www.w3.org/2000/svg','path');let d;if(type==='partner'){const x=a.x+65,y=a.y+45,X=b.x+65,Y=b.y+45;d=`M ${x} ${y} H ${(x+X)/2} V ${Y} H ${X}`;}else{const x=a.x+65,y=a.y+92,X=b.x+65,Y=b.y,mid=(y+Y)/2;d=`M ${x} ${y} V ${mid} H ${X} V ${Y}`;}p.setAttribute('d',d);p.setAttribute('class',type);svg.append(p);}
-  function paint(){world.textContent='';list.textContent='';world.style.width=graph.width+'px';world.style.height=graph.height+'px';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width',graph.width);svg.setAttribute('height',graph.height);svg.setAttribute('aria-hidden','true');graph.edges.forEach(e=>line(svg,graph.nodes[e.a],graph.nodes[e.b],e.type));world.append(svg);
+  // One connector per family unit: from the parents (the middle of a couple) down to only their own children.
+  function unitLine(svg,u,i){const P=u.parents.map(id=>graph.nodes[id]).filter(n=>n&&n.x!=null),C=u.children.map(id=>graph.nodes[id]).filter(n=>n&&n.x!=null);if(!P.length||!C.length)return;
+    const lane=graph.units.filter((v,j)=>j<i&&Math.max(...v.parents.map(id=>graph.nodes[id]?.y||0))===Math.max(...P.map(n=>n.y))).length;
+    const bar=Math.max(...P.map(n=>n.y))+128+(lane%6)*16,cx=C.map(n=>n.x+65);
+    // A couple standing side by side shares one drop from the middle of their partner line; otherwise each parent has its own drop.
+    const couple=P.length===2&&P[0].y===P[1].y&&Math.abs(P[0].x-P[1].x)===200&&graph.edges.some(e=>e.type==='partner'&&[e.a,e.b].sort().join()===[P[0].id,P[1].id].sort().join());
+    const drops=couple?[[(P[0].x+P[1].x)/2+65,P[0].y+45]]:P.map(n=>[n.x+65,n.y+116]);
+    const xs=drops.map(q=>q[0]).concat(cx);let d=`M ${Math.min(...xs)} ${bar} H ${Math.max(...xs)}`;drops.forEach(([x,y])=>{d+=` M ${x} ${y} V ${bar}`;});C.forEach(n=>{d+=` M ${n.x+65} ${bar} V ${n.y}`;});
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');p.setAttribute('d',d);p.setAttribute('class','parent');p.style.stroke=UNIT_COLORS[i%UNIT_COLORS.length];svg.append(p);}
+  function paint(){world.textContent='';list.textContent='';world.style.width=graph.width+'px';world.style.height=graph.height+'px';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width',graph.width);svg.setAttribute('height',graph.height);svg.setAttribute('aria-hidden','true');graph.edges.filter(e=>e.type==='partner').forEach(e=>line(svg,graph.nodes[e.a],graph.nodes[e.b],e.type));(graph.units||[]).forEach((u,i)=>unitLine(svg,u,i));world.append(svg);
     Object.values(graph.nodes).forEach(n=>{const label=n.missing?'Unknown relative':simName(n), initials=n.missing?'?':label.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase();const portrait=h('span',{class:'fx-portrait',text:initials});if(n.image){portrait.textContent='';portrait.append(h('img',{src:n.image,alt:''}));}const b=h('button',{class:'fx-node'+(n.missing?' missing':''),'data-sim-id':n.id,type:'button',tabindex:'-1',style:`left:${n.x}px;top:${n.y}px`,onclick:()=>detail(n.id)},portrait,h('b',{text:label}),h('small',{text:[n.missing?'Missing reference':n.omitted?'Outside shown records':AGE[n.age]||n.age,n.dead?'Deceased':''].filter(Boolean).join(' · ')}));world.append(b);});paintList();
   }
   function paintList(){list.textContent='';const term=filter.value.trim().toLowerCase(),matches=Object.values(graph.nodes).filter(n=>(n.missing?'unknown relative':simName(n).toLowerCase()).includes(term));const pages=Math.max(1,Math.ceil(matches.length/40));listPage=Math.min(listPage,pages-1);const names=new Map();matches.forEach(n=>{const name=n.missing?'Unknown relative':simName(n);names.set(name,(names.get(name)||0)+1);});matches.slice(listPage*40,listPage*40+40).forEach(n=>{const label=n.missing?'Unknown relative':simName(n);list.append(h('button',{type:'button',class:'fx-list-item',onclick:()=>detail(n.id)},label+(names.get(label)>1?' · '+n.id:'')));});if(pages>1){const prev=btn('Previous',()=>{listPage--;paintList();list.querySelector('.fx-list-item')?.focus();}),next=btn('Next',()=>{listPage++;paintList();list.querySelector('.fx-list-item')?.focus();});prev.dataset.page='previous';next.dataset.page='next';prev.disabled=listPage===0;next.disabled=listPage===pages-1;list.append(h('div',{class:'row'},prev,h('span',{text:'Page '+(listPage+1)+' of '+pages}),next));}}

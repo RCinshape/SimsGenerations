@@ -129,3 +129,12 @@ test('family preview distinguishes spouse, other reported relatives and children
 test('vote form communicates the six-hour duration',async t=>{
  const w=await load(t);w.eval('renderVotes()');assert.ok([...w.document.querySelectorAll('#votes button')].some(b=>b.textContent==='Start the vote (6 hours)'));
 });
+test('children are grouped by their exact parents: a parent with three partners gets three separate units',async t=>{
+ const w=await load(t);
+ const g=w.eval(`familyGraph({s:{id:'s',first:'Sadie',children:['b','r','h'],spouse:'k'},k:{id:'k',first:'Kyle',children:['h'],spouse:'s'},a:{id:'a',first:'Salim',children:['b']},m:{id:'m',first:'Romeo',children:['r','c'],spouse:'j'},j:{id:'j',first:'Juliette',children:['c'],spouse:'m'},b:{id:'b',parents:['a','s']},r:{id:'r',parents:['s','m']},h:{id:'h',parents:['k','s']},c:{id:'c',parents:['j','m']}})`);
+ const key=u=>u.parents.join('+')+'>'+[...u.children].sort().join(',');
+ assert.equal(JSON.stringify(g.units.map(key).sort()),JSON.stringify(['a+s>b','j+m>c','k+s>h','m+s>r']));
+ const rows={};Object.values(g.nodes).forEach(n=>(rows[n.y]=rows[n.y]||[]).push(n.x));
+ Object.values(rows).forEach(xs=>{xs.sort((a,b)=>a-b);for(let i=1;i<xs.length;i++)assert.ok(xs[i]-xs[i-1]>=200,'no overlap in a row');});
+ assert.equal(g.nodes.k.y,g.nodes.s.y,'a married-in partner sits on the same row as their partner');
+});
