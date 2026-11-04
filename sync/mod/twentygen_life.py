@@ -110,8 +110,126 @@ def _active():
 def _sim(si):
     sim_id = str(si.sim_id)
     data = SYNC._sim(si, bool(_known.get(sim_id, {}).get("inHousehold")), False)
+    _string_ids(data)
     data["life"] = _life(si)
     return data
+
+
+def _string_ids(data):
+    # Convert integers before JSON reaches JavaScript, where 64-bit IDs may round.
+    # Do not fabricate exact IDs from floats or alter existing textual IDs.
+    def exact(value):
+        return str(value) if isinstance(value, int) and not isinstance(value, bool) else value
+    for key in ("id", "spouse"):
+        if key in data:
+            data[key] = exact(data[key])
+    for key in ("parents", "children"):
+        if isinstance(data.get(key), list):
+            data[key] = [exact(value) for value in data[key]]
+
+
+def _family_observe(si, data):
+    # Read only the particular sim's direct genealogy, never a partner's family.
+    # A missing API, exception, or bounded list is partial, not an empty result.
+    import itertools
+    tracker = _safe(lambda: si.genealogy) or _safe(lambda: si._genealogy_tracker)
+    results = {}
+    for field, methods, limit in (("parents", ("get_parent_sim_ids_gen", "get_parent_sim_infos_gen"), 10),
+                                  ("children", ("get_children_sim_ids_gen", "get_child_sim_infos_gen"), 30)):
+        def exact_id(value):
+            if not isinstance(value, (int, str)):
+                value = _safe(lambda: value.sim_id, _safe(lambda: value.id))
+            if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                return str(value)
+            if isinstance(value, str) and value.isdigit() and int(value) > 0:
+                return value
+            return None
+        values = None
+        for method in methods:
+            def read():
+                fn = getattr(tracker, method)
+                return list(itertools.islice(fn(), limit + 1))
+            candidate = _safe(read)
+            if candidate is not None:
+                converted = [exact_id(value) for value in candidate]
+                if all(value is not None for value in converted):
+                    values = converted
+                    break
+        if values is None:
+            results[field] = "unknown"
+            continue
+        data[field] = values[:limit]
+        results[field] = "partial" if len(values) > limit else "observed"
+    return results
+
+
+def _capture_sequence():
+    # Persist before emitting: failed writes cannot reuse an acknowledged number.
+    stream = _journal.get("familyStream")
+    if not isinstance(stream, dict) or not isinstance(stream.get("id"), str) or len(stream["id"]) != 32:
+        stream = {"id": uuid.uuid4().hex, "sequence": 0}
+    seq = stream.get("sequence")
+    if not isinstance(seq, int) or isinstance(seq, bool) or seq < 0 or seq >= 9007199254740991:
+        raise ValueError("invalid family stream sequence")
+    previous = _journal.get("familyStream")
+    _journal["familyStream"] = {"id": stream["id"], "sequence": seq + 1}
+    try:
+        _persist()
+    except Exception:
+        if previous is None:
+            _journal.pop("familyStream", None)
+        else:
+            _journal["familyStream"] = previous
+        raise
+    return {"streamId": stream["id"], "sequence": seq + 1, "captureId": uuid.uuid4().hex}
+
+
+def _romantic_observations(snap):
+    # EA's read-only traversal exposes flags, but does not prove when or why
+    # an absent edge ended. Inspect only direct edges; never mutate graph nodes.
+    import services
+    from family_tree.family_tree_enums import FamilyTreeTraversalMode, FamilyRelationBitFlags
+    service = services.family_tree_service()
+    graph = service.family_tree_graph
+    mask = (("spouse", FamilyRelationBitFlags.SPOUSE),
+            ("fiance", FamilyRelationBitFlags.FIANCE),
+            ("steady", FamilyRelationBitFlags.STEADY))
+    sims = snap.get("sims", [])
+    roots = [data for data in sims if data.get("inHousehold")][:4] or sims[:1]
+    observations, seen, inspected = [], set(), [0]
+    def visitor(node):
+        return False
+    def edge_filter(edge, path):
+        inspected[0] += 1
+        if inspected[0] > 128:
+            return False
+        try:
+            a, b = str(edge.source_sim_id), str(edge.target_sim_id)
+            if not a.isdigit() or not b.isdigit() or not int(a) or not int(b) or len(a)>24 or len(b)>24 or a==b:
+                return False
+            flags = [name for name, bit in mask if edge.edge_data & bit]
+            if flags:
+                pair = tuple(sorted((a,b)))
+                key = pair + tuple(flags)
+                if key not in seen:
+                    seen.add(key)
+                    observations.append({"a":pair[0],"b":pair[1],"flags":flags})
+        except Exception:
+            pass
+        # No graph traversal beyond the root. An omitted edge means unknown.
+        return False
+    successes = 0
+    for root in roots:
+        if inspected[0] >= 128:
+            break
+        try:
+            graph.traverse(int(root["id"]), visitor_function=visitor, max_depth=1,
+                           edge_filter_function=edge_filter,
+                           traversal_mode=FamilyTreeTraversalMode.TRAVERSAL_BREADTH_FIRST)
+            successes += 1
+        except Exception:
+            continue
+    return observations if successes else None
 
 
 def _decorate(snap):
@@ -120,9 +238,11 @@ def _decorate(snap):
     import services
     manager = services.sim_info_manager()
     for data in snap.get("sims", []):
+        _string_ids(data)
         si = _safe(lambda: manager.get(int(data["id"])))
         if si is not None:
             data["life"] = _life(si)
+            data["familyObservation"] = _family_observe(si, data)
         _known[str(data["id"])] = dict(data)
     # Retain event participants even if death/divorce removed their current family link.
     ids = {str(data["id"]) for data in snap.get("sims", [])}
@@ -131,6 +251,21 @@ def _decorate(snap):
             snap["sims"].append(dict(data))
     snap["lifeEvents"] = list(_journal["events"])
     snap["lifeNewsVersion"] = 1
+    romantic = _safe(lambda: _romantic_observations(snap))
+    if romantic is not None:
+        snap["familyRelationships"] = romantic
+    # The underlying collector bounds traversal and may encounter unavailable Sims.
+    # Neither a save slot nor a wall clock proves lineage or ordering across PCs.
+    snap["familyCapture"] = {
+        "schema": 1, "source": "game-genealogy", "completeness": "partial",
+        "saveIdentity": "unverified", "captureOrder": "unverified",
+        "capabilities": {"parentLinks": "reported", "household": "reported",
+                         "romantic": "spouse-only", "parentRoles": "unknown"}
+    }
+    try:
+        snap["familyCapture"].update(_capture_sequence())
+    except Exception:
+        _log("family stream unavailable; capture order is unknown")
     return snap
 
 

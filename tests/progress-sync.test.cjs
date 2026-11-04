@@ -32,6 +32,7 @@ function setup() {
     window: { addEventListener: (name, fn) => { listeners[name] = fn; } },
     closeSheet() {},
     authScreen() {},
+    updateFamilyBubble() {},
     key: n => String(n || '').toLowerCase().trim(),
     uid: () => 'eventid123',
     G: n => n === 1 ? { n: 1 } : null,

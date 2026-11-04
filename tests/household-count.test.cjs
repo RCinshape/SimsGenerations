@@ -2,6 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {JSDOM}=require('jsdom');
 const {html}=require('./create-debug-fixture.cjs');
+const FamilyEngine=require('../family-engine.js');
 async function setup(t){
  const dom=new JSDOM(html,{url:'https://fixture.invalid/#g=fixture-backend-000000000000',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.scrollTo=()=>{};}});
  t.after(()=>dom.window.close());const w=dom.window;
@@ -15,7 +16,9 @@ test('last matching household count excludes historical and unflagged sims while
  const w=await setup(t);
  w.eval(`LIVE.sync['qa-alpha']=[{at:1699999999000,hh:'unrelated',data:{sims:[{id:'2',first:'Sim1',last:'Sample',inHousehold:true}]}},{at:1699827200000,hh:'legacy',data:{sims:Array.from({length:12},(_,i)=>({id:String(i+1),first:i===0?'Founder':i===5?'Former':i===6?'Child':'Sim'+i,last:'Sample',...(i<5?{inHousehold:true}:i===5?{inHousehold:false}:{})}))}}]`);
  assert.match(header(w),/5 sims in household · last recorded 2d ago/);
- const panel=w.eval("familyPanel('qa-alpha').textContent");assert.match(panel,/Former Sample/);assert.match(panel,/Child/);assert.equal(w.eval("Object.keys(famOf('qa-alpha')).length"),12);
+ const graph=FamilyEngine.normalize({owner:'qa-alpha',family:w.eval("LIVE.fam['qa-alpha']"),sync:w.eval("LIVE.sync['qa-alpha']")});
+ assert.equal(graph.sims['6'].first,'Former');assert.equal(graph.sims['7'].first,'Child');assert.equal(Object.keys(graph.sims).length,12);
+ assert.ok(graph.edges.some(e=>e.type==='parent'&&e.a==='1'&&e.b==='7'));assert.ok(graph.edges.some(e=>e.type==='partner'&&e.a==='1'&&e.b==='6'));
 });
 test('no matching snapshot is unavailable, including a newer unrelated household',async t=>{
  const w=await setup(t);

@@ -1,0 +1,42 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const {build}=require('../scripts/build-family-backend.cjs');
+test('portrait alias preserves identity, ownership, undo and later target writes',()=>{
+ const src="function api(path,me,body){switch(path){\n      case 'portrait': return portraitAction_(me, body);\n}}\n"+fs.readFileSync('gas/Portraits.gs','utf8');
+ const files={'fam__alice.json':{sims:{'123':{f:'game'}}},'portrait__alice__manual-a.json':{image:'old',at:10},'portraits__alice.json':[{simId:'manual-a',at:10}]},props={},clone=x=>x==null?x:JSON.parse(JSON.stringify(x));
+ const ctx={roster_:()=>({alice:'Alice',bob:'Bob',test:'Test'}),safe_:x=>String(x).toLowerCase(),sameActor_:(a,b)=>a.toLowerCase()===b.toLowerCase(),isTester_:x=>String(x).toLowerCase()==='test',readJson_:(k,d)=>files[k]===undefined?clone(d):clone(files[k]),readText_:k=>files[k]===undefined?null:JSON.stringify(files[k]),writeJson_:(k,v)=>{files[k]=clone(v)},trash_:k=>{delete files[k]},prop_:()=>({}),props_:()=>({getProperty:k=>props[k]??null,setProperty:(k,v)=>props[k]=v}),withLock_:fn=>fn(),res_:(s,d)=>({s,d}),plainJson_:()=>true,syncFor_:()=>({recs:[]})};
+ vm.createContext(ctx);vm.runInContext(build(src),ctx);ctx.portraitImageValid_=()=>true;
+ const edit=(rev,op)=>ctx.familyEdit_('Alice',{owner:'Alice',revision:rev,op});const photo=(actor,action,id,extra={})=>ctx.portraitAction_(actor,{owner:'Alice',action,simId:id,...extra});
+ assert.equal(edit(0,{type:'add_sim',id:'manual-a',fields:{first:'m'}}).s,200);assert.equal(edit(1,{type:'link_manual',id:'manual-a',targetId:'123'}).s,200);
+ assert.equal(photo('Bob','get','123').d.image,'old');assert.equal(photo('Bob','put','123',{ifAt:10,image:'new'}).s,403);assert.equal(photo('Test','get','123').s,200);assert.equal(ctx.portraitAction_('Alice',{owner:'Test',action:'list'}).s,404);
+ assert.equal(photo('Alice','list').d.portraits.find(x=>x.simId==='123').at,10);assert.equal(files['portrait__alice__123.json'],undefined);
+ assert.equal(photo('Alice','remove','123',{ifAt:10}).d.error,'portrait_alias');assert.equal(photo('Alice','put','123',{ifAt:9,image:'new'}).s,409);
+ const put=photo('Alice','put','123',{ifAt:10,image:'new'});assert.equal(put.s,200);assert.equal(photo('Alice','get','123').d.image,'new');assert.equal(photo('Alice','list').d.portraits.find(x=>x.simId==='123').at,put.d.at);
+ assert.equal(edit(2,{type:'undo'}).s,200);assert.equal(photo('Alice','get','123').d.image,'new');assert.equal(photo('Alice','get','manual-a').d.image,'old');
+});
+test('different portraits require an explicit choice and later writes supersede it',()=>{
+ const src="function api(path,me,body){switch(path){\n      case 'portrait': return portraitAction_(me, body);\n}}\n"+fs.readFileSync('gas/Portraits.gs','utf8');let files={'fam__alice.json':{sims:{'123':{f:'game'}}},'portrait__alice__manual-a.json':{image:'manual',at:10},'portrait__alice__123.json':{image:'game',at:20},'portraits__alice.json':[{simId:'manual-a',at:10},{simId:'123',at:20}]},p={};const clone=x=>x==null?x:JSON.parse(JSON.stringify(x));let c={roster_:()=>({alice:'Alice'}),safe_:x=>String(x).toLowerCase(),sameActor_:(a,b)=>a.toLowerCase()===b.toLowerCase(),isTester_:()=>false,readJson_:(k,d)=>files[k]===undefined?clone(d):clone(files[k]),readText_:k=>files[k]===undefined?null:JSON.stringify(files[k]),writeJson_:(k,v)=>files[k]=clone(v),trash_:k=>delete files[k],prop_:()=>({}),props_:()=>({getProperty:k=>p[k]??null,setProperty:(k,v)=>p[k]=v}),withLock_:fn=>fn(),res_:(s,d)=>({s,d}),plainJson_:()=>true,syncFor_:()=>({recs:[]})};vm.createContext(c);vm.runInContext(build(src),c);c.portraitImageValid_=()=>true;let edit=(r,op)=>c.familyEdit_('Alice',{owner:'Alice',revision:r,op}),get=()=>c.portraitAction_('Alice',{owner:'Alice',action:'get',simId:'123'});edit(0,{type:'add_sim',id:'manual-a',fields:{first:'m'}});assert.equal(edit(1,{type:'link_manual',id:'manual-a',targetId:'123'}).d.part,'portrait');assert.equal(edit(1,{type:'link_manual',id:'manual-a',targetId:'123',portraitChoice:'manual'}).s,200);assert.equal(get().d.image,'manual');assert.equal(c.portraitAction_('Alice',{owner:'Alice',action:'put',simId:'123',ifAt:10,image:'updated'}).s,200);assert.equal(get().d.image,'updated');
+});
+test('portraits, aliases and writes stay isolated between selected sources',()=>{
+ const src="function api(path,me,body){switch(path){\n      case 'portrait': return portraitAction_(me, body);\n}}\n"+fs.readFileSync('gas/Portraits.gs','utf8'),a='a'.repeat(32),b='b'.repeat(32);let active='legacy',switchOnLock=null,files={'fam__alice.json':{sims:{'123':{f:'legacy'}}},'portrait__alice__123.json':{image:'legacy',at:1},'portraits__alice.json':[{simId:'123',at:1}]},p={};const clone=x=>x==null?x:JSON.parse(JSON.stringify(x));
+ let c={roster_:()=>({alice:'Alice',bob:'Bob'}),safe_:x=>String(x).toLowerCase(),sameActor_:(x,y)=>x.toLowerCase()===y.toLowerCase(),isTester_:()=>false,readJson_:(k,d)=>files[k]===undefined?clone(d):clone(files[k]),readText_:k=>files[k]===undefined?null:JSON.stringify(files[k]),writeJson_:(k,v)=>files[k]=clone(v),trash_:k=>delete files[k],prop_:()=>({}),props_:()=>({getProperty:k=>p[k]??null,setProperty:(k,v)=>p[k]=v}),withLock_:fn=>{if(switchOnLock){active=switchOnLock;switchOnLock=null;}return fn()},res_:(s,d)=>({s,d}),plainJson_:()=>true,syncFor_:()=>({recs:[]}),familyCaptureState_:()=>({active,revision:1,choices:[],legacyAvailable:true}),familyCaptureRead_:()=>({scope:active,family:{sims:{'123':{f:'same-id'}}},sync:[]})};vm.createContext(c);vm.runInContext(build(src),c);c.portraitImageValid_=()=>true;
+ let pic=(actor,scope,action,id,extra={})=>c.portraitAction_(actor,{owner:'Alice',scope,action,simId:id,...extra}),edit=(scope,revision,op)=>c.familyEdit_('Alice',{owner:'Alice',scope,revision,op});
+ assert.equal(pic('Alice','legacy','get','123').d.image,'legacy');active=a;assert.equal(pic('Alice',a,'get','123').s,404);assert.equal(pic('Bob',a,'put','123',{ifAt:0,image:'a'}).s,403);assert.equal(pic('Alice','legacy','put','123',{ifAt:1,image:'wrong'}).d.error,'scope_conflict');assert.equal(pic('Alice',a,'put','123',{ifAt:0,image:'a'}).s,200);assert.equal(pic('Alice',a,'get','123').d.image,'a');
+ active=b;assert.equal(pic('Alice',b,'get','123').s,404);assert.equal(pic('Alice',b,'put','123',{ifAt:0,image:'b'}).s,200);assert.equal(pic('Alice',b,'get','123').d.image,'b');active=a;assert.equal(pic('Alice',a,'get','123').d.image,'a');
+ switchOnLock=b;assert.equal(pic('Alice',a,'put','123',{ifAt:1,image:'stale'}).d.error,'scope_conflict');assert.equal(pic('Alice',b,'get','123').d.image,'b');active='legacy';assert.equal(pic('Alice','legacy','get','123').d.image,'legacy');
+ active=a;assert.equal(edit(a,0,{type:'add_sim',id:'manual-a',fields:{first:'manual'}}).s,200);assert.equal(pic('Alice',a,'put','manual-a',{ifAt:0,image:'manual'}).s,200);assert.equal(edit(a,1,{type:'link_manual',id:'manual-a',targetId:'123'}).d.part,'portrait');assert.equal(edit(a,1,{type:'link_manual',id:'manual-a',targetId:'123',portraitChoice:'manual'}).s,200);assert.equal(pic('Alice',a,'get','123').d.image,'manual');active=b;assert.equal(pic('Alice',b,'get','123').d.image,'b');active=a;assert.equal(edit(a,2,{type:'undo'}).s,200);assert.equal(pic('Alice',a,'get','123').d.image,'a');
+});
+test('family builder accepts crlf and mixed source without changing unrelated bytes',()=>{
+ const portrait=fs.readFileSync('gas/Portraits.gs','utf8').replace(/\r\n/g,'\n');
+ const route="function api(path,me,body){switch(path){\n      case 'portrait': return portraitAction_(me, body);\n}}\n";
+ const unchanged="// sentinel before\r\n// untouched blank follows\r\n\r\n// sentinel after\r\n";
+ const lf=build(route+unchanged+portrait);
+ const windows=build(route+unchanged+portrait.replace(/\n/g,'\r\n'));
+ assert.ok(windows.includes(unchanged));
+ assert.ok(windows.includes("owner = roster[sn];\r\n  var portraitOwnerSn"));
+ assert.ok(windows.includes("case 'portrait': return portraitAction_(me, body);\n      case 'family_read'"));
+ assert.equal(windows.replace(/\r\n/g,'\n'),lf.replace(/\r\n/g,'\n'));
+ const crlfSource=(route+portrait).replace(/\n/g,'\r\n'),crlfOut=build(crlfSource);
+ assert.ok(crlfOut.includes("case 'portrait': return portraitAction_(me, body);\r\n      case 'family_read'"));
+ const duplicate=crlfSource+'\r\n/*\r\n  owner = roster[sn];\n  if (action === \'list\')\r\n*/';
+ assert.throws(()=>build(duplicate),/portrait alias marker must occur exactly once/);
+});

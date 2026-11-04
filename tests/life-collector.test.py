@@ -24,6 +24,7 @@ class CollectorTest(unittest.TestCase):
             sys.modules[name] = result
             self.addCleanup(lambda: sys.modules.pop(name, None) if previous is None else sys.modules.__setitem__(name, previous))
             return result
+        self.module=module
         class Sim:
             def __init__(self, sim_id):
                 self.sim_id, self.dead, self.age, self.spouse = sim_id, False, 'ADULT', None
@@ -147,6 +148,76 @@ class CollectorTest(unittest.TestCase):
     def test_missing_buff_api_does_not_claim_a_known_false_state(self):
         si=types.SimpleNamespace(pregnancy_tracker=types.SimpleNamespace(is_pregnant=True))
         self.assertEqual(self.life._life(si),{'pregnant':True})
+
+    def test_family_capture_is_partial_and_does_not_claim_save_lineage_or_order(self):
+        snap=self.sync.build_snapshot()
+        capture=snap['familyCapture']
+        self.assertEqual(capture['completeness'],'partial')
+        self.assertEqual(capture['saveIdentity'],'unverified')
+        self.assertEqual(capture['captureOrder'],'unverified')
+        self.assertEqual(len(capture['streamId']),32)
+        self.assertEqual(len(capture['captureId']),32)
+        self.assertEqual(snap['sims'][0]['id'],'1')
+
+    def test_direct_genealogy_uses_each_sims_own_parents_and_children(self):
+        self.sims[1].genealogy=types.SimpleNamespace(get_parent_sim_ids_gen=lambda:iter([18446744073709551615]),
+            get_children_sim_ids_gen=lambda:iter([2,3,4]))
+        self.sims[2].genealogy=types.SimpleNamespace(get_parent_sim_ids_gen=lambda:iter([]),
+            get_children_sim_ids_gen=lambda:iter(range(100,140)))
+        snap=self.sync.build_snapshot()
+        self.assertEqual(snap['sims'][0]['parents'],['18446744073709551615'])
+        self.assertEqual(snap['sims'][0]['children'],['2','3','4'])
+        self.assertEqual(snap['sims'][0]['familyObservation']['children'],'observed')
+        self.assertEqual(snap['sims'][1]['familyObservation']['children'],'partial')
+        self.assertEqual(len(snap['sims'][1]['children']),30)
+
+    def test_official_getters_take_priority_and_community_fallback_is_conservative(self):
+        self.sims[1].genealogy=types.SimpleNamespace(get_parent_sim_ids_gen=lambda:iter([11]),
+            get_parent_sim_infos_gen=lambda:iter([99]),get_children_sim_ids_gen=lambda:iter([12]),
+            get_child_sim_infos_gen=lambda:iter([98]))
+        self.sims[2]._genealogy_tracker=types.SimpleNamespace(get_parent_sim_infos_gen=lambda:iter([types.SimpleNamespace(id=18446744073709551615)]),
+            get_child_sim_infos_gen=lambda:iter([3]))
+        snap=self.sync.build_snapshot()
+        self.assertEqual(snap['sims'][0]['parents'],['11']);self.assertEqual(snap['sims'][0]['children'],['12'])
+        self.assertEqual(snap['sims'][1]['parents'],['18446744073709551615']);self.assertEqual(snap['sims'][1]['children'],['3'])
+        self.sims[2]._genealogy_tracker=types.SimpleNamespace(get_parent_sim_infos_gen=lambda:iter([1.5]))
+        snap=self.sync.build_snapshot();self.assertEqual(snap['sims'][1]['familyObservation']['parents'],'unknown')
+
+    def test_read_only_graph_capture_reports_flags_without_guessing_end_or_parent_direction(self):
+        self.module('family_tree')
+        self.module('family_tree.family_tree_enums',FamilyTreeTraversalMode=types.SimpleNamespace(TRAVERSAL_BREADTH_FIRST=1),
+            FamilyRelationBitFlags=types.SimpleNamespace(SPOUSE=4,FIANCE=8,STEADY=16))
+        calls=[]
+        class Graph:
+            def traverse(self,root,visitor_function,max_depth,edge_filter_function,traversal_mode):
+                calls.append((root,max_depth,traversal_mode));visitor_function(object())
+                for a,b,flags in [(1,8,4),(1,9,8),(1,10,16),(1,11,1)]:
+                    self.assert_false(edge_filter_function(types.SimpleNamespace(source_sim_id=a,target_sim_id=b,edge_data=flags),[]))
+            @staticmethod
+            def assert_false(value):
+                if value is not False:raise AssertionError('must not traverse')
+        sys.modules['services'].family_tree_service=lambda:types.SimpleNamespace(family_tree_graph=Graph())
+        snap=self.sync.build_snapshot();rels=snap['familyRelationships']
+        self.assertEqual(len(calls),2);self.assertTrue(all(call[1]==1 for call in calls))
+        self.assertEqual({(x['a'],x['b'],tuple(x['flags'])) for x in rels}, {('1','8',('spouse',)),('1','9',('fiance',)),('1','10',('steady',))})
+
+    def test_stream_sequence_survives_restart_and_failed_write_is_not_emitted(self):
+        first=self.sync.build_snapshot()['familyCapture']
+        self.life._context=None
+        second=self.sync.build_snapshot()['familyCapture']
+        self.assertEqual(second['streamId'],first['streamId'])
+        self.assertEqual(second['sequence'],first['sequence']+1)
+        self.assertNotEqual(second['captureId'],first['captureId'])
+        old=self.life._persist
+        self.life._persist=lambda: (_ for _ in ()).throw(OSError('disk'))
+        try: failed=self.sync.build_snapshot()['familyCapture']
+        finally: self.life._persist=old
+        self.assertNotIn('sequence',failed)
+        self.assertEqual(self.sync.build_snapshot()['familyCapture']['sequence'],second['sequence']+1)
+
+    def test_family_metadata_does_not_appear_for_unclaimed_save(self):
+        snap={'legacy':{'claimed':False},'household':{'id':'900'},'sims':[]}
+        self.assertNotIn('familyCapture',self.life._decorate(snap))
 
 
 if __name__=='__main__':unittest.main()
