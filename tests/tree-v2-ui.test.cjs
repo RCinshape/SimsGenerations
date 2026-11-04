@@ -51,9 +51,9 @@ test('Sadie focus: 3 children in 3 units, each under the right partner, with sta
   assert.ok(!all.includes('Hidden Cousin'), 'hidden sims are not drawn');
   const sym = id => d.querySelector(`.tv-partner[data-partner="${id}"] .tv-status`);
   assert.equal(sym('2002').getAttribute('aria-label'), 'Ex'); assert.equal(sym('2002').textContent, '💔');
-  assert.equal(sym('2003').getAttribute('aria-label'), 'Coparent'); assert.equal(sym('2003').textContent, '🤝');
+  assert.equal(sym('2003').getAttribute('aria-label'), 'Co-parent'); assert.equal(sym('2003').textContent, '🤝');
   assert.equal(sym('2004').getAttribute('aria-label'), 'Married'); assert.equal(sym('2004').textContent, '💍');
-  assert.equal(sym('2004').title, 'Married');
+  assert.equal(sym('2004').dataset.tip, 'Married'); assert.equal(sym('2004').tagName, 'BUTTON');
   for (const id of ['2002', '2003', '2004']) {
     const p = d.querySelector(`.tv-partner[data-partner="${id}"]`), u = d.querySelector(`.tv-unit[data-with="${id}"]`);
     assert.ok(p.style.getPropertyValue('--uc')); assert.equal(p.style.getPropertyValue('--uc'), u.style.getPropertyValue('--uc'), 'connector colour matches partner');

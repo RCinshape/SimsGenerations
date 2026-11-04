@@ -8,15 +8,17 @@ if(window.TreeV2)return;
 
 /* ---------- constants ---------- */
 const STATUS={
-  married:{sym:'💍',label:'Married',cls:''},
-  engaged:{sym:'💍',label:'Engaged',cls:'light'},
-  dating:{sym:'❤️',label:'Dating',cls:''},
-  ex:{sym:'💔',label:'Ex',cls:''},
-  divorced:{sym:'💔',label:'Divorced',cls:''},
-  widowed:{sym:'🖤',label:'Widowed',cls:''},
-  coparent:{sym:'🤝',label:'Coparent',cls:''},
-  unknown:{sym:'?',label:'Unknown',cls:''}
+  married:{sym:'💍',label:'Married',cls:'',line:'solid'},
+  engaged:{sym:'💍',label:'Engaged (fiancé/fiancée)',cls:'light',line:'solid'},
+  dating:{sym:'❤️',label:'Dating',cls:'',line:'solid'},
+  ex:{sym:'💔',label:'Ex',cls:'',line:'dashed'},
+  divorced:{sym:'💔',label:'Divorced',cls:'',line:'dashed'},
+  widowed:{sym:'🖤',label:'Widowed',cls:'',line:'muted'},
+  coparent:{sym:'🤝',label:'Co-parent',cls:'',line:'dotted'},
+  unknown:{sym:'?',label:'Status unknown',cls:'',line:'dotted'}
 };
+const OCC_ICON={VAMPIRE:'🧛',WITCH:'🔮',WEREWOLF:'🐺',MERMAID:'🧜',FAIRY:'🧚',ALIEN:'👽',PLANTSIM:'🌱',ROBOT:'🤖'};
+const LINE_DASH={solid:'',dashed:'9 7',dotted:'1.5 7',muted:''};
 const STATUS_ORDER=['married','engaged','dating','coparent','unknown','widowed','divorced','ex'];
 const PARENT_TYPES=[['birth','Birth parent'],['adopted','Adoptive parent'],['step','Step parent'],['unknown','Parent (type unknown)']];
 const UNIT_COLORS=['#d9468f','#2f8fe0','#e08a1e','#138a7e','#7a4fd0','#c2a210','#c53a28','#4f9e2a'];
@@ -298,10 +300,10 @@ function goBack(st){if(!st.stack.length)return;st.focus=st.stack.pop();st.select
 function crumbJump(st,i){ // i = index in stack; jump there and drop everything after
   const id=st.stack[i];if(!id)return;st.stack=st.stack.slice(0,i);st.focus=id;st.selected=null;paint(st,{focusFocus:true});setHash(st);
 }
-function select(st,id,opener){st.selected=id;st.panelMode='sim';paint(st);st.opener=$q(st.ui.stage,'[data-id="'+id+'"]')||opener||null;const c=$q(st.ui.panel,'.tv-panel-close');c&&c.focus();}
+function select(st,id,opener){st.selected=id;st.panelMode='sim';paint(st);st.opener=$q(st.ui.stage,'[data-id="'+id+'"]')||opener||null;const c=$q(st.ui.panel,'.tv-panel-close');c&&c.focus({preventScroll:true});}
 function closePanel(st){
   st.selected=null;st.panelMode='sim';st.form=null;paint(st);
-  const o=st.opener&&st.opener.isConnected?st.opener:$q(st.ui.stage,'.tv-focus .tv-sim');o&&o.focus();st.opener=null;
+  const oid=st.opener&&st.opener.dataset&&st.opener.dataset.id,o=(st.opener&&st.opener.isConnected?st.opener:null)||(oid&&$q(st.ui.stage,'[data-id="'+oid+'"]'))||$q(st.ui.stage,'.tv-focus .tv-sim');o&&o.focus({preventScroll:true});st.opener=null;
 }
 function announce(st,msg){st.ui.live.textContent='';setTimeout(()=>{if(st.ui.live)st.ui.live.textContent=msg;},20);}
 
@@ -309,68 +311,304 @@ function announce(st,msg){st.ui.live.textContent='';setTimeout(()=>{if(st.ui.liv
 function simLabel(st,id){
   const s=st.ix.sims[id];return [nameOf(s),isPet(s)?(s.species||'pet'):ageLabel(s.age),s.life==='dead'?'deceased':s.life==='ghost'?'ghost':''].filter(Boolean).join(', ');
 }
+const heirGen=(st,id)=>{const hs=(st.tree&&st.tree.heirs)||{};const k=Object.keys(hs).find(n=>str(hs[n])===id);return k?Number(k):0;};
+/* a small round icon that can be focused and explains itself (see the tooltip block below) */
+function tipIcon(sym,tip,tag,cls,attrs){
+  const el=h(tag||'button',Object.assign({class:'tv-tip '+(cls||''),'data-tip':tip,'aria-label':tip},tag==='span'?{role:'img'}:{type:'button'},attrs||{}),h('span',{'aria-hidden':'true',text:sym}));
+  return el;
+}
+function marksFor(st,id,extra={}){
+  const s=st.ix.sims[id],m=[];
+  if(isPet(s)){const sp=cap(s.species)||'Pet';m.push([petEmoji(s),sp,'species']);}
+  if(s.life==='dead')m.push(['🪦','Deceased','dead']);else if(s.life==='ghost')m.push(['👻','Ghost','ghost']);
+  const g=heirGen(st,id);if(g)m.push(['👑','Heir of generation '+g,'heir']);
+  (s.occults||[]).slice(0,3).forEach(o=>{const k=str(o).toUpperCase();m.push([OCC_ICON[k]||'✨',occLabel(o),'occult']);});
+  if(extra.ptype==='adopted')m.push(['🏠',extra.asParent?'Adoptive parent':'Adopted child','adopted']);
+  if(extra.ptype==='step')m.push(['🧩',extra.asParent?'Step parent':'Step child','step']);
+  return m;
+}
 function bubble(st,id,size,extra={}){
   const s=st.ix.sims[id];
   const b=h('button',{type:'button',class:`tv-sim s-${size}${s.life==='dead'?' dead':''}${s.life==='ghost'?' ghost':''}${isPet(s)?' pet':''}${st.selected===id?' selected':''}${st.ix.hidden.has(id)?' is-hidden':''}${extra.cls?' '+extra.cls:''}`,'data-id':id,title:`${nameOf(s)} (${tail(id)})`,'aria-label':simLabel(st,id)+(extra.aria?', '+extra.aria:''),style:extra.color?`--uc:${extra.color}`:null},
     pic(st,id,'big'),
     h('span',{class:'tv-nm',text:nameOf(s)}),
-    h('span',{class:'tv-sb',text:[isPet(s)?(s.species||'Pet'):ageLabel(s.age),s.life==='dead'?'🪦':s.life==='ghost'?'👻':''].filter(Boolean).join(' ')}));
+    h('span',{class:'tv-sb',text:isPet(s)?(s.species||'Pet'):ageLabel(s.age)}));
   b.addEventListener('click',e=>{if(e.detail>1)return;select(st,id,b);});
   b.addEventListener('dblclick',()=>refocus(st,id));
   b.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();refocus(st,id);}});
-  return b;
+  const marks=marksFor(st,id,extra);
+  const node=h('span',{class:`tv-node s-${size}`,'data-node':id});
+  node.append(b);
+  if(marks.length)node.append(h('span',{class:'tv-marks'},...marks.map(m=>tipIcon(m[0],m[1],'button','tv-mark',{'data-mark':m[2]}))));
+  return node;
 }
-function statusSym(status){
+function statusSym(status,asText){
   const m=STATUS[status]||STATUS.unknown;
-  return h('span',{class:'tv-status '+m.cls,role:'img','aria-label':m.label,title:m.label,'data-status':status||'unknown',text:m.sym});
+  return tipIcon(m.sym,m.label,asText?'span':'button','tv-status '+m.cls,{'data-status':status||'unknown'});
 }
 
 /* ---------- stage ---------- */
 function ghostBtn(text,label,fn){return h('button',{class:'tv-ghost',type:'button','aria-label':label,onclick:fn},text);}
 function paintStage(st){
-  const ix=st.ix,f=st.focus,stage=st.ui.stage;stage.textContent='';
+  const ix=st.ix,f=st.focus,stage=st.ui.stage;
+  if(st.ro){st.ro.disconnect();st.ro=null;}
+  stage.textContent='';st.ui.canvas=st.ui.wires=null;
   if(!f||!ix.sims[f]){stage.append(h('p',{class:'tv-note',text:'This tree has no sims yet.'}),st.edit?h('button',{class:'tv-btn primary',type:'button',onclick:()=>openForm(st,null)},'+ Add Sim'):null);return;}
   const units=unitsOf(ix,f),partners=partnersOf(ix,f),colors=colorMap(ix,f,units,partners);
   const parents=parentsOf(ix,f),pets=petsOf(ix,f);
   st.visible=[f,...parents.map(l=>l.parent),...partners.map(p=>p.id),...units.flatMap(u=>u.children),...pets];if(st.selected)st.visible.push(st.selected);
+  /* one canvas: the wires (svg) sit behind the nodes (.tv-tree) */
+  const cv=h('div',{class:'tv-canvas'}),svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('class','tv-wires');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');
+  const tree=h('div',{class:'tv-tree',style:`--nu:${units.length};--np:${partners.length};--nr:${Math.max(1,Math.ceil(partners.length/2))}`});
+  cv.append(svg,tree);stage.append(cv);st.ui.canvas=cv;st.ui.wires=svg;
   /* parents */
   const prow=h('div',{class:'tv-parents tv-zone','aria-label':'Parents'});
-  parents.forEach(l=>prow.append(h('div',{class:'tv-pwrap'},bubble(st,l.parent,'sm'),h('span',{class:'tv-tag',text:(PARENT_TYPES.find(t=>t[0]===l.type)||PARENT_TYPES[3])[1].replace(' parent','').replace(' (type unknown)','')}))));
+  parents.forEach(l=>prow.append(h('div',{class:'tv-pwrap'},bubble(st,l.parent,'sm',{ptype:l.type,asParent:true}),h('span',{class:'tv-tag',text:(PARENT_TYPES.find(t=>t[0]===l.type)||PARENT_TYPES[3])[1].replace(' parent','').replace(' (type unknown)','')}))));
+  if(parents.length===2){
+    const a=parents[0].parent,b=parents[1].parent,pl=(ix.pt.get(a)||[]).find(l=>other(l,a)===b);
+    prow.dataset.couple=pl?pl.status||'unknown':'';
+    if(pl)prow.append(statusSym(pl.status||'unknown'));
+  }
   if(st.edit)prow.append(ghostBtn('＋ Parent','Add a parent',()=>openPicker(st,'parent',f)));
-  if(prow.children.length)stage.append(h('div',{class:'tv-row-label',text:'Parents'}),prow);
+  if(prow.children.length)tree.append(h('div',{class:'tv-row-label tv-sr',text:'Parents'}),prow);
   /* focus + partners */
   const core=h('div',{class:'tv-core'});
   core.append(h('div',{class:'tv-focus'},bubble(st,f,'xl',{cls:'focus'})));
   const col=h('div',{class:'tv-partners tv-zone','aria-label':'Partners'});
   partners.forEach(p=>{
     const c=colors.get(p.id),m=STATUS[p.link.status]||STATUS.unknown;
-    const box=h('div',{class:'tv-partner','data-partner':p.id,'data-status':p.link.status,style:`--uc:${c}`},statusSym(p.link.status),bubble(st,p.id,'md',{color:c,aria:m.label}),
-      h('span',{class:'tv-tag',text:m.label}));
+    const box=h('div',{class:'tv-partner','data-partner':p.id,'data-status':p.link.status,style:`--uc:${c}`},bubble(st,p.id,'md',{color:c,aria:m.label}),
+      h('span',{class:'tv-tag',text:m.label}),statusSym(p.link.status));
     if(st.edit)box.append(h('button',{class:'tv-btn small',type:'button','aria-label':'Remove the link with '+nameOf(ix.sims[p.id]),onclick:()=>removeLink(st,'partner',p.link)},'Unlink'));
     else box.append(h('button',{class:'tv-btn small subtree',type:'button','data-subtree':p.id,'aria-label':'Open subtree of '+nameOf(ix.sims[p.id]),onclick:()=>refocus(st,p.id)},'Open subtree'));
     col.append(box);
   });
   if(st.edit)col.append(ghostBtn('＋ Partner','Add a partner',()=>openPicker(st,'partner',f)));
-  core.append(col);stage.append(core);
-  /* children by unit */
+  /* pets sit beside the focus sim, on a dotted line of their own */
+  if(pets.length||st.edit){
+    const row=h('div',{class:'tv-pets tv-zone','aria-label':'Pets'},h('span',{class:'tv-pets-tag',text:'Pets'}),...pets.map(p=>bubble(st,p,'sm')));
+    if(st.edit)row.append(ghostBtn('＋ Pet','Add a pet',()=>openPicker(st,'pet',f)));
+    core.prepend(row);
+  }
+  core.append(col);tree.append(core);
+  /* children by unit: no boxes, the wires are the structure */
   const kids=h('div',{class:'tv-kids','aria-label':'Children'});
   units.sort((a,b)=>{const ia=a.others.length?[...colors.keys()].indexOf(a.others[0]):99,ib=b.others.length?[...colors.keys()].indexOf(b.others[0]):99;return ia-ib;});
+  const partnerIds=new Set(partners.map(p=>p.id));
   units.forEach(u=>{
-    const o=u.others[0],c=o?colors.get(o):SOLO_COLOR,hid=o&&ix.hidden.has(o);
+    const o=u.others[0],c=o?colors.get(o):SOLO_COLOR;
     const lab=u.others.length?'with '+u.others.map(x=>ix.hidden.has(x)?'a hidden sim':nameOf(ix.sims[x])).join(' and '):'on their own',short=u.others.length?'with '+u.others.map(x=>ix.hidden.has(x)?'a hidden sim':(ix.sims[x].first||nameOf(ix.sims[x]))).join(' & '):'on their own';
-    const unit=h('div',{class:'tv-unit','data-unit':u.key,'data-with':u.others.join(','),role:'group','aria-label':`Children ${lab}`,style:`--uc:${c}`},
-      h('span',{class:'tv-unit-label',text:short,title:lab}),h('div',{class:'tv-unit-kids'},...u.children.map(k=>bubble(st,k,'md'))));
+    const typeOf=k=>{const l=(ix.kids.get(f)||[]).find(x=>x.child===k);return l?l.type:'';};
+    const unit=h('div',{class:'tv-unit','data-unit':u.key,'data-with':u.others.join(','),'data-src':o&&partnerIds.has(o)?o:'focus',role:'group','aria-label':`Children ${lab}`,style:`--uc:${c}`},
+      h('span',{class:'tv-unit-label',text:short,title:lab}),h('div',{class:'tv-unit-kids'},...u.children.map(k=>bubble(st,k,'md',{ptype:typeOf(k)}))));
     kids.append(unit);
   });
   if(st.edit)kids.append(h('div',{class:'tv-unit new'},ghostBtn('＋ Child','Add a child',()=>openPicker(st,'child',f))));
-  if(units.length||st.edit)stage.append(h('div',{class:'tv-row-label',text:'Children'}),kids);
-  else stage.append(h('p',{class:'tv-note tv-nokids',text:'No children recorded for '+nameOf(ix.sims[f])+'.'}));
-  /* pets */
-  if(pets.length||st.edit){
-    const row=h('div',{class:'tv-pets tv-zone','aria-label':'Pets'},...pets.map(p=>bubble(st,p,'sm')));
-    if(st.edit)row.append(ghostBtn('＋ Pet','Add a pet',()=>openPicker(st,'pet',f)));
-    stage.append(h('div',{class:'tv-row-label',text:'Pets'}),row);
+  if(units.length||st.edit)tree.append(h('div',{class:'tv-row-label tv-sr',text:'Children'}),kids);
+  else tree.append(h('p',{class:'tv-note tv-nokids',text:'No children recorded for '+nameOf(ix.sims[f])+'.'}));
+  /* wires: draw now, and again whenever the layout can change */
+  drawWires(st);scheduleWires(st);
+  if(window.ResizeObserver){st.ro=new ResizeObserver(()=>scheduleWires(st));st.ro.observe(cv);st.ro.observe(stage);}
+  cv.addEventListener('load',()=>scheduleWires(st),true);
+}
+
+/* ---------- wires: one svg behind the nodes, coordinates measured from the rendered DOM ---------- */
+const NS='http://www.w3.org/2000/svg';
+function sv(name,attrs){const e=document.createElementNS(NS,name);Object.keys(attrs||{}).forEach(k=>{if(attrs[k]!=null)e.setAttribute(k,attrs[k]);});return e;}
+const isNarrow=()=>window.innerWidth<=700;
+const r1=n=>Math.round(n*10)/10;
+function roundedPath(pts,r){
+  const p=pts.filter((q,i)=>!i||Math.abs(q[0]-pts[i-1][0])>.01||Math.abs(q[1]-pts[i-1][1])>.01);
+  let d=`M${r1(p[0][0])} ${r1(p[0][1])}`;
+  for(let i=1;i<p.length-1;i++){
+    const a=p[i-1],b=p[i],c=p[i+1],l1=Math.hypot(b[0]-a[0],b[1]-a[1]),l2=Math.hypot(c[0]-b[0],c[1]-b[1]),rr=Math.min(r==null?10:r,l1/2,l2/2);
+    if(rr<1){d+=` L${r1(b[0])} ${r1(b[1])}`;continue;}
+    d+=` L${r1(b[0]+(a[0]-b[0])/l1*rr)} ${r1(b[1]+(a[1]-b[1])/l1*rr)} Q${r1(b[0])} ${r1(b[1])} ${r1(b[0]+(c[0]-b[0])/l2*rr)} ${r1(b[1]+(c[1]-b[1])/l2*rr)}`;
   }
+  const z=p[p.length-1];return p.length>1?d+` L${r1(z[0])} ${r1(z[1])}`:d;
+}
+function scheduleWires(st){
+  if(st.wireRaf)return;
+  const raf=window.requestAnimationFrame?window.requestAnimationFrame.bind(window):f=>setTimeout(f,16);
+  st.wireRaf=raf(()=>{st.wireRaf=0;if(alive(st))drawWires(st);});
+}
+/* Prefer a symmetric core (focus sim exactly in the middle). If that does not fit the stage, keep the focus beside its
+   partners and shift the parent and children rows so they still sit right over the focus sim. */
+function fitCore(st,narrow){
+  const cv=st.ui.canvas,stage=st.ui.stage,core=cv.querySelector('.tv-core'),rows=[...cv.querySelectorAll('.tv-parents,.tv-kids')];
+  if(!core)return;
+  rows.forEach(r=>{r.style.marginRight='';});core.classList.remove('tv-sym');
+  if(narrow)return;
+  core.classList.add('tv-sym');
+  if(cv.scrollWidth<=stage.clientWidth+1)return;
+  core.classList.remove('tv-sym');
+  const fpic=cv.querySelector('.tv-focus .tv-pic');if(!fpic)return;
+  const c=cv.getBoundingClientRect(),f=fpic.getBoundingClientRect(),shift=Math.round(((c.left+c.width/2)-(f.left+f.width/2))*2);
+  if(shift>0)rows.forEach(r=>{r.style.marginRight=shift+'px';});
+}
+function drawWires(st){
+  const cv=st.ui.canvas,svg=st.ui.wires;if(!cv||!svg||!cv.isConnected)return;
+  fitCore(st,isNarrow());
+  const cr=cv.getBoundingClientRect(),narrow=isNarrow();
+  const R=el=>{const r=el.getBoundingClientRect();return {l:r.left-cr.left,r:r.right-cr.left,t:r.top-cr.top,b:r.bottom-cr.top,cx:(r.left+r.right)/2-cr.left,cy:(r.top+r.bottom)/2-cr.top,w:r.width,h:r.height};};
+  const Q=(root,sel)=>[...root.querySelectorAll(sel)];
+  const W=Math.max(cv.scrollWidth,Math.round(cr.width)),H=Math.max(cv.scrollHeight,Math.round(cr.height));
+  svg.textContent='';svg.setAttribute('width',W);svg.setAttribute('height',H);svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const focusSim=cv.querySelector('.tv-focus .tv-sim');if(!focusSim)return;
+  const fp=R(focusSim.querySelector('.tv-pic')),fb=R(focusSim).b;
+  const group=(cls,attrs)=>{const g=sv('g',Object.assign({class:cls,fill:'none','stroke-linecap':'round','stroke-linejoin':'round'},attrs));svg.append(g);return g;};
+  const line=(g,pts,o={})=>{
+    const d=roundedPath(pts,o.r);
+    if(o.halo)g.append(sv('path',{class:'tv-halo',d}));
+    const p=sv('path',{class:'tv-wire '+(o.cls||''),d,'stroke-width':o.w||3.5});
+    if(o.dash)p.setAttribute('stroke-dasharray',o.dash);
+    if(o.kind)p.setAttribute('data-style',o.kind);
+    if(o.op!=null)p.setAttribute('stroke-opacity',o.op);
+    g.append(p);return p;
+  };
+  const statusLine=(g,pts,status,cls)=>{
+    const k=(STATUS[status]||STATUS.unknown).line;
+    return line(g,pts,{cls:(cls||'tv-link')+' is-'+k,kind:k,dash:LINE_DASH[k]||null,w:k==='muted'?2.5:3.5,op:k==='muted'?.55:null});
+  };
+  const place=(badge,host,x,y)=>{if(!badge||!host)return;const hr=R(host);badge.style.left=r1(x-hr.l-15)+'px';badge.style.top=r1(y-hr.t-15)+'px';badge.classList.add('on-line');};
+  /* parents -> focus */
+  const prow=cv.querySelector('.tv-parents'),pws=prow?Q(prow,'.tv-pwrap'):[];
+  if(pws.length){
+    const g=group('tv-parents-wire',{'data-kind':'parents'}),pics=pws.map(w=>R(w.querySelector('.tv-pic'))).sort((a,b)=>a.cx-b.cx),bots=pws.map(w=>R(w).b),maxB=Math.max(...bots);
+    const ym=Math.max(maxB+8,(maxB+fp.t)/2);let S;
+    if(pws.length===2){
+      const y=(pics[0].cy+pics[1].cy)/2,mx=(pics[0].r+pics[1].l)/2,status=prow.dataset.couple;
+      if(status)statusLine(g,[[pics[0].r+1,y],[pics[1].l-1,y]],status);else line(g,[[pics[0].r+1,y],[pics[1].l-1,y]],{cls:'tv-link is-solid',kind:'solid',w:3});
+      place(prow.querySelector('.tv-status'),prow,mx,y);S=[mx,y];
+    }else if(pws.length===1){S=[pics[0].cx,bots[0]+2];}
+    else{
+      const y=maxB+10;pws.forEach(w=>{const q=R(w),pc=R(w.querySelector('.tv-pic'));line(g,[[pc.cx,q.b+2],[pc.cx,y]],{w:3});});
+      line(g,[[pics[0].cx,y],[pics[pics.length-1].cx,y]],{w:3});S=[(pics[0].cx+pics[pics.length-1].cx)/2,y];
+    }
+    line(g,[S,[S[0],ym],[fp.cx,ym],[fp.cx,fp.t-3]],{w:3});
+  }
+  /* focus <-> partners */
+  const cards=Q(cv,'.tv-partner[data-partner]'),groups=new Map(),src=new Map();
+  const couples=cards.map(card=>{const pic=R(card.querySelector('.tv-pic'));return {id:card.dataset.partner,card,r:R(card),py:pic.cy,color:(card.style.getPropertyValue('--uc')||'').trim()||SOLO_COLOR,status:card.dataset.status||'unknown'};});
+  couples.forEach(c=>{c.g=group('tv-couple',{'data-with':c.id,'data-status':c.status,stroke:c.color});groups.set(c.id,c.g);});
+  if(couples.length){
+    if(!narrow){
+      const rad=fp.w/2,xmin=Math.min(...couples.map(c=>c.r.l)),lo=fp.r+16,hi=xmin-70;
+      const up=couples.filter(c=>c.py<fp.cy-3).sort((a,b)=>b.py-a.py),down=couples.filter(c=>c.py>fp.cy+3).sort((a,b)=>a.py-b.py),mid=couples.filter(c=>Math.abs(c.py-fp.cy)<=3);
+      const n=Math.max(up.length,down.length),step=n>1?Math.max(0,Math.min(22,(hi-lo)/(n-1))):0;
+      const lay=(list,sign)=>list.forEach((c,i)=>{
+        const d=sign*Math.min(rad*.75,11+i*11),s=[fp.cx+Math.sqrt(Math.max(0,rad*rad-d*d))-1,fp.cy+d],ex=Math.min(Math.max(lo,hi-i*step),c.r.l-46);
+        c.pts=[s,[ex,s[1]],[ex,c.py],[c.r.l,c.py]];
+      });
+      lay(up,-1);lay(down,1);mid.forEach(c=>{c.pts=[[fp.r-1,fp.cy],[c.r.l,c.py]];});
+      couples.forEach(c=>{const k=c.pts.length;c.bx=(c.pts[k-2][0]+c.pts[k-1][0])/2;c.by=c.py;});
+    }else{
+      const xS=Math.min(...couples.map(c=>c.r.l))-54;let prev=null;
+      couples.sort((a,b)=>a.py-b.py).forEach(c=>{
+        const spine=prev?[[xS,prev],[xS,c.py]]:[[fp.cx,fb+2],[fp.cx,fb+14],[xS,fb+14],[xS,c.py]];
+        line(c.g,spine,{cls:'tv-spine',w:3});prev=c.py;
+        c.pts=[[xS,c.py],[c.r.l,c.py]];c.bx=(xS+c.r.l)/2;c.by=c.py;c.xS=xS;
+      });
+    }
+    couples.forEach(c=>{statusLine(c.g,c.pts,c.status);place(c.card.querySelector('.tv-status'),c.card,c.bx,c.by);src.set(c.id,{x:c.bx,y:c.by+15,xS:c.xS,y0:c.by});});
+  }
+  /* couples -> children */
+  const kidsEl=cv.querySelector('.tv-kids'),us=Q(cv,'.tv-unit[data-with]');
+  if(kidsEl&&us.length){
+    const kr=R(kidsEl),coreB=Math.max(R(cv.querySelector('.tv-core')).b,...cards.map(c=>R(c).b));
+    const info=us.map((u,idx)=>{
+      const ur=R(u),lr=R(u.querySelector('.tv-unit-label')),pics=Q(u,'.tv-unit-kids .tv-pic').map(R).sort((a,b)=>a.t-b.t||a.cx-b.cx),rows=[];
+      pics.forEach(p=>{const last=rows[rows.length-1];if(last&&Math.abs(last.top-p.t)<10)last.p.push(p);else rows.push({top:p.t,p:[p]});});
+      rows.forEach(r=>{r.p.sort((a,b)=>a.cx-b.cx);r.cxs=r.p.map(p=>p.cx);r.minL=Math.min(...r.p.map(p=>p.l));r.last=r.cxs[r.cxs.length-1];});
+      return {u,idx,ur,lr,rows,key:u.dataset.src,col:(u.style.getPropertyValue('--uc')||'').trim()||SOLO_COLOR,w:u.dataset.with};
+    }).filter(i=>i.rows.length);
+    const lines=[];
+    info.slice().sort((a,b)=>a.ur.t-b.ur.t).forEach(i=>{const l=lines[lines.length-1];if(l&&Math.abs(l.t-i.ur.t)<12)l.u.push(i);else lines.push({t:i.ur.t,u:[i]});});
+    lines.forEach((l,li)=>{l.u.sort((a,b)=>a.lr.cx-b.lr.cx);l.u.forEach((i,k)=>{i.li=li;i.lk=k;});});
+    /* sources */
+    const hang=info.filter(i=>i.key==='focus');
+    info.forEach(i=>{
+      i.g=groups.get(i.key);
+      if(!i.g)i.g=group('tv-couple tv-hang',{'data-with':i.w,stroke:i.col});
+      if(i.key==='focus'){const k=hang.indexOf(i);i.S=narrow?[fp.l-1,fp.cy]:[fp.cx+(k-(hang.length-1)/2)*10,fb+2];}
+      else{const s=src.get(i.key);i.S=narrow?[s.xS,s.y0]:[s.x,s.y];}
+    });
+    /* unit-internal bars and rails */
+    const railBase=16;
+    info.forEach(i=>{
+      const multi=i.rows.length>1;
+      i.rail=narrow?railBase+10*i.idx:(multi?Math.max(railBase,Math.min(...i.rows.map(r=>r.minL))-14):null);
+      i.bars=i.rows.map((r,ri)=>ri?r.top-18:i.lr.cy);
+      i.rows.forEach((r,ri)=>{
+        const y=i.bars[ri],x0=i.rail!=null?i.rail:Math.min(r.cxs[0],ri?r.cxs[0]:i.lr.cx),x1=Math.max(r.last,ri?r.last:i.lr.cx);
+        if(x1>x0)line(i.g,[[x0,y],[x1,y]],{w:3,r:0});
+        r.cxs.forEach(cx=>line(i.g,[[cx,y],[cx,r.top-3]],{w:3,r:0}));
+      });
+      if(i.rail!=null&&i.rows.length>1)line(i.g,[[i.rail,i.bars[0]],[i.rail,i.bars[i.bars.length-1]]],{w:3,r:0});
+    });
+    /* descents from each couple (or the focus) to its children */
+    if(narrow){
+      info.forEach(i=>{line(i.g,[i.S,[i.rail,i.S[1]],[i.rail,i.bars[i.bars.length-1]]],{halo:true,w:3,cls:'tv-descent'});});
+    }else{
+      const chB=Math.min(...info.filter(i=>i.li===0).map(i=>i.ur.t))-8,chT=coreB+6,used=info.filter(j=>j.li>0);
+      info.forEach(i=>{
+        i.tx=i.lr.cx;
+        if(i.li>0)i.ru=Math.max(railBase,kr.l-14-8*used.indexOf(i));
+        i.goLeft=(i.li>0?i.ru:i.tx)<i.S[0];
+      });
+      const gl=info.filter(i=>i.goLeft).sort((a,b)=>a.S[0]-b.S[0]),gr=info.filter(i=>!i.goLeft).sort((a,b)=>b.S[0]-a.S[0]),order=[...gl,...gr];
+      order.forEach((i,k)=>{i.L=chT+(k+1)*Math.max(4,chB-chT)/(order.length+1);});
+      info.forEach(i=>{
+        const T=[i.tx,i.ur.t-1];let pts;
+        if(i.li===0)pts=[i.S,[i.S[0],i.L],[i.tx,i.L],T];
+        else{
+          const step=Math.min(6,28/lines[i.li].u.length),yR=i.ur.t-10-step*i.lk;
+          pts=[i.S,[i.S[0],i.L],[i.ru,i.L],[i.ru,yR],[i.tx,yR],T];
+        }
+        line(i.g,pts,{halo:true,w:3,cls:'tv-descent'});
+      });
+    }
+  }
+  /* pets hang on a dotted line of their own */
+  const pr=cv.querySelector('.tv-pets');
+  if(pr&&pr.querySelector('.tv-sim')){
+    const g=group('tv-pets-wire',{'data-kind':'pets'}),prr=R(pr);
+    const pts=narrow?[[fp.l-1,fp.cy],[5,fp.cy],[5,prr.cy],[prr.l-2,prr.cy]]:[[fp.l-1,fp.cy],[(fp.l+prr.r)/2,fp.cy],[(fp.l+prr.r)/2,prr.cy],[prr.r+2,prr.cy]];
+    line(g,pts,{w:3,dash:'1.5 7',kind:'dotted',cls:'tv-link is-dotted'});
+  }
+}
+
+/* ---------- tooltips: every icon explains itself (hover, keyboard focus, tap) ---------- */
+function setupTips(st){
+  let tip=null,cur=null;
+  const root=el=>el&&el.closest&&el.closest('.tv');
+  const ensure=()=>{if(!tip){tip=h('div',{class:'tv tv-tooltip',role:'tooltip',id:'tv-tooltip',hidden:true});document.body.append(tip);}return tip;};
+  const hide=()=>{if(cur){cur.removeAttribute('aria-describedby');cur=null;}if(tip){tip.hidden=true;tip.classList.remove('on');}};
+  const show=el=>{
+    const t=el.getAttribute('data-tip');if(!t)return;
+    if(cur&&cur!==el)cur.removeAttribute('aria-describedby');
+    cur=el;const b=ensure();b.textContent=t;b.hidden=false;el.setAttribute('aria-describedby','tv-tooltip');
+    const r=el.getBoundingClientRect(),tr=b.getBoundingClientRect(),vw=document.documentElement.clientWidth||window.innerWidth||1024;
+    let left=r.left+r.width/2-tr.width/2;left=Math.max(8,Math.min(left,vw-tr.width-8));
+    let top=r.top-tr.height-9,below=false;if(top<8){top=r.bottom+9;below=true;}
+    b.style.left=Math.round(left)+'px';b.style.top=Math.round(top)+'px';
+    b.style.setProperty('--ax',Math.round(r.left+r.width/2-left)+'px');b.classList.toggle('below',below);b.classList.add('on');
+  };
+  const near=e=>{const el=e.target&&e.target.closest?e.target.closest('[data-tip]'):null;return el&&root(el)&&(root(el)===st.shell||root(el)===st.ui.sheet)?el:null;};
+  const on={
+    mouseover:e=>{const el=near(e);if(el)show(el);},
+    mouseout:e=>{const el=near(e);if(el&&cur===el&&!(e.relatedTarget&&el.contains(e.relatedTarget)))hide();},
+    focusin:e=>{const el=near(e);if(el)show(el);},
+    focusout:e=>{const el=near(e);if(el&&cur===el)hide();},
+    click:e=>{const el=near(e);if(el)show(el);},
+    touchstart:e=>{const el=near(e);if(el)show(el);},
+    pointerdown:e=>{if(e.pointerType==='touch'&&cur&&!near(e))hide();},
+    keydown:e=>{if(e.key==='Escape')hide();},
+    scroll:()=>hide()
+  };
+  Object.keys(on).forEach(k=>document.addEventListener(k,on[k],k==='scroll'||k==='touchstart'?{capture:true,passive:true}:true));
+  return ()=>{Object.keys(on).forEach(k=>document.removeEventListener(k,on[k],k==='scroll'||k==='touchstart'?{capture:true}:true));hide();if(tip){tip.remove();tip=null;}};
 }
 
 /* ---------- header, strip, search ---------- */
@@ -429,12 +667,35 @@ function infoRow(st,sim,field,valueText,canReset){
   return h('div',{class:'tv-info-row'},h('dt',{text:FIELD_LABEL[field]}),dd);
 }
 function fmtGame(v){return Array.isArray(v)?(v.map(cap).join(', ')||'none'):(v==null||v===''?'nothing':str(v));}
+const motionOK=()=>{try{return typeof matchMedia==='function'&&!matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}};
+/* the sim card is an overlay sheet: position:fixed, transform + opacity only, so the tree never reflows */
+function setSheet(st,open){
+  const sheet=st.ui.sheet,bd=st.ui.backdrop;
+  if(open===!!st.sheetOpen)return;
+  st.sheetOpen=open;clearTimeout(st.sheetT);
+  st.shell.classList.toggle('tv-has-panel',open);
+  if(open){
+    sheet.hidden=false;bd.hidden=false;document.documentElement.classList.add('tv-panel-open');
+    void sheet.offsetWidth;
+    sheet.classList.add('is-open');bd.classList.add('is-open');
+  }else{
+    sheet.classList.remove('is-open');bd.classList.remove('is-open');
+    const done=()=>{if(st.sheetOpen)return;sheet.hidden=true;bd.hidden=true;document.documentElement.classList.remove('tv-panel-open');};
+    if(motionOK())st.sheetT=setTimeout(done,420);else done();
+  }
+}
 function paintPanel(st){
-  const p=st.ui.panel,ix=st.ix;p.textContent='';
-  const open=st.panelMode==='form'||(st.selected&&ix.sims[st.selected]);
-  p.hidden=!open;st.shell.classList.toggle('tv-has-panel',!!open);document.documentElement.classList.toggle('tv-panel-open',!!open);
+  const p=st.ui.panel,ix=st.ix;
+  const open=!!(st.panelMode==='form'||(st.selected&&ix.sims[st.selected]));
+  const key=open?st.panelMode+':'+(st.panelMode==='form'?(st.form&&st.form.editId)||'new':st.selected):'';
+  const same=key===st.panelKey,scroll=p.scrollTop;let ghost=null;
+  /* switching between two sims cross-fades the content; the sheet itself does not move */
+  if(open&&st.sheetOpen&&!same&&motionOK()){ghost=p.cloneNode(true);ghost.className='tv-panel-body tv-panel-ghost';ghost.removeAttribute('id');ghost.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));ghost.setAttribute('aria-hidden','true');ghost.setAttribute('inert','');}
+  st.panelKey=key;p.textContent='';
+  setSheet(st,open);
   if(!open)return;
-  if(st.panelMode==='form'){renderForm(st);return;}
+  if(ghost){const sh=st.ui.sheet;sh.append(ghost);ghost.scrollTop=scroll;setTimeout(()=>ghost.remove(),260);p.classList.remove('tv-fadein');void p.offsetWidth;p.classList.add('tv-fadein');}
+  if(st.panelMode==='form'){renderForm(st);p.scrollTop=same?scroll:0;return;}
   const id=st.selected,sim=ix.sims[id];
   const close=h('button',{class:'tv-x tv-panel-close',type:'button','aria-label':'Close sim card',onclick:()=>closePanel(st)},'✕');
   const nameEdited=(sim.edited||[]).some(f=>f==='first'||f==='last');
@@ -457,7 +718,7 @@ function paintPanel(st){
   p.append(section(st,'Parents','parents',id,parents,()=>openPicker(st,'parent',id)));
   const partners=partnersOf(ix,id).map(q=>{const m=STATUS[q.link.status]||STATUS.unknown;
     return row(st,q.id,m.label,st.edit?[selectOf(Object.keys(STATUS).map(k=>[k,STATUS[k].label]),q.link.status,'Relationship status',v=>setLink(st,'partner',q.link,v)),h('button',{class:'tv-btn small',type:'button','aria-label':'Remove partner link to '+nameOf(ix.sims[q.id]),onclick:()=>removeLink(st,'partner',q.link)},'Remove')]:null);});
-  const prow=partnersOf(ix,id).map((q,i)=>{const li=partners[i];$q(li,'.tv-rowbtn').prepend(statusSym(q.link.status));return li;});
+  const prow=partnersOf(ix,id).map((q,i)=>{const li=partners[i];$q(li,'.tv-rowbtn').prepend(statusSym(q.link.status,true));return li;});
   p.append(section(st,'Partners','partners',id,prow,()=>openPicker(st,'partner',id)));
   const kidLinks=(ix.kids.get(id)||[]).filter(l=>!isPet(ix.sims[l.child])&&!ix.hidden.has(l.child)).sort((a,b)=>sortAge(a.child,b.child,ix.sims));
   const kids=kidLinks.map(l=>{const o=(ix.par.get(l.child)||[]).map(x=>x.parent).filter(x=>x!==id&&ix.sims[x]);return row(st,l.child,o.length?'with '+o.map(x=>ix.hidden.has(x)?'a hidden sim':nameOf(ix.sims[x])).join(' and '):'',st.edit?[h('button',{class:'tv-btn small',type:'button','aria-label':'Remove child link to '+nameOf(ix.sims[l.child]),onclick:()=>removeLink(st,'parent',l)},'Remove')]:null);});
@@ -492,6 +753,7 @@ function paintPanel(st){
       h('p',{class:'tv-note small',text:'Remove a link with the Remove buttons above. Hiding keeps every link. Only sims you added by hand can be deleted.'}));
     p.append(dz);
   }
+  p.scrollTop=same?scroll:0;
 }
 async function uploadPhoto(st,id,file){
   const msg=$q(st.ui.panel,'#tv-photo-msg');const say=t=>{if(alive(st)&&msg&&msg.isConnected)msg.textContent=t;};
@@ -710,7 +972,11 @@ function build(shell,owner,tree,classic,container){
   ui.search.addEventListener('input',()=>runSearch(st));
   ui.search.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runSearch(st,true);}if(e.key==='Escape'&&ui.search.value){e.stopPropagation();ui.search.value='';ui.results.hidden=true;}});
   ui.stage=h('div',{class:'tv-stage',role:'region','aria-label':'Family of the focused sim','aria-describedby':'tv-hint'});
-  ui.panel=h('aside',{class:'tv-panel',role:'complementary','aria-label':'Sim card',hidden:true});
+  ui.sheet=h('aside',{class:'tv tv-panel',role:'dialog','aria-modal':'false','aria-label':'Sim card',hidden:true});
+  ui.panel=h('div',{class:'tv-panel-body'});
+  ui.sheet.append(h('div',{class:'tv-grab','aria-hidden':'true'}),ui.panel);
+  ui.backdrop=h('div',{class:'tv tv-backdrop','aria-hidden':'true',hidden:true});
+  document.body.append(ui.backdrop,ui.sheet);
   ui.live=h('p',{class:'tv-sr',role:'status','aria-live':'polite'});
   ui.hint=h('p',{class:'tv-sr',id:'tv-hint',text:'Tab through the sims. Space or click opens the sim card. Enter or double-click makes that sim the focus. Escape closes the card.'});
   ui.snack=h('div',{class:'tv-snack',role:'status',hidden:true});
@@ -719,14 +985,19 @@ function build(shell,owner,tree,classic,container){
     h('div',{class:'tv-bar'},ui.back,ui.crumbs),
     h('div',{class:'tv-bar tools'},h('div',{class:'tv-searchwrap'},ui.search,ui.results),ui.owner,ui.editWrap,h('button',{class:'tv-btn small',type:'button','data-act':'classic',onclick:classic},'Classic view'),orig),
     ui.stripWrap,ui.banner);
-  shell.append(top,h('div',{class:'tv-body'},ui.stage,ui.panel),ui.snack,ui.live,ui.hint);
-  shell.addEventListener('keydown',e=>{
+  shell.append(top,h('div',{class:'tv-body'},ui.stage),ui.snack,ui.live,ui.hint);
+  const onEsc=e=>{
     if(e.key!=='Escape'||st.modals.length)return;
     if(!ui.results.hidden){ui.results.hidden=true;return;}
-    if(!ui.panel.hidden){e.preventDefault();if(st.panelMode==='form')cancelForm(st);else closePanel(st);}
-  });
+    if(st.sheetOpen){e.preventDefault();e.stopPropagation();if(st.panelMode==='form')cancelForm(st);else closePanel(st);}
+  };
+  shell.addEventListener('keydown',onEsc);ui.sheet.addEventListener('keydown',onEsc);
+  ui.backdrop.addEventListener('click',()=>{if(st.sheetOpen){if(st.panelMode==='form')cancelForm(st);else closePanel(st);}});
   const away=e=>{if(!e.target.closest('.tv-searchwrap'))ui.results.hidden=true;};
-  document.addEventListener('click',away);st.cleanup=()=>document.removeEventListener('click',away);
+  document.addEventListener('click',away);
+  const onResize=()=>scheduleWires(st);window.addEventListener('resize',onResize);
+  const untip=setupTips(st);
+  st.cleanup=()=>{document.removeEventListener('click',away);window.removeEventListener('resize',onResize);untip();clearTimeout(st.sheetT);if(st.ro)st.ro.disconnect();ui.sheet.remove();ui.backdrop.remove();};
   paint(st);
   portraitList(st);
 }

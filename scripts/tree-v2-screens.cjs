@@ -58,6 +58,8 @@ const shot = (page, name, full) => page.screenshot({ path: path.join(out, name +
           await page.click('[data-act=add-sim]');
           await page.waitForTimeout(150);
           await shot(page, `add-form-${theme}-${sn}`);
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(150);
         }
       }
       if (theme === 'light' && sn === 'desktop') {

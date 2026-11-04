@@ -1,7 +1,7 @@
 /* Family tree v2 (tree.js). Uses the app tokens (--surface, --ink, --muted, --hair, --bg, --blue1/2, --green1/2, --gold, --red),
    so light and dark come from html[data-theme]. */
-.tv{--tv-card:var(--surface);--tv-soft:color-mix(in srgb,var(--blue1) 9%,var(--surface));--tv-edit:#c2410c;--tv-ring:var(--hair);color:var(--ink);font-weight:700}
-html[data-theme=dark] .tv{--tv-edit:#fb923c;--tv-soft:color-mix(in srgb,var(--blue1) 14%,var(--surface))}
+.tv{--tv-card:var(--surface);--tv-soft:color-mix(in srgb,var(--blue1) 9%,var(--surface));--tv-edit:#c2410c;--tv-ring:var(--hair);--tv-line:#8da2b6;--tv-halo:var(--surface);color:var(--ink);font-weight:700}
+html[data-theme=dark] .tv{--tv-edit:#fb923c;--tv-soft:color-mix(in srgb,var(--blue1) 14%,var(--surface));--tv-line:#6f8aa5}
 .tv *{box-sizing:border-box}
 .tv-page{display:flex;flex-direction:column;gap:12px;min-height:60vh}
 .tv-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -52,10 +52,14 @@ html[data-theme=dark] .tv-crumb{color:#8cc4f5}html[data-theme=dark] .tv-crumb.cu
 .tv-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;border-radius:14px;background:color-mix(in srgb,var(--tv-edit) 14%,var(--surface));border:2px dashed var(--tv-edit);font-size:13.5px}
 .tv-banner>b{color:var(--tv-edit);text-transform:uppercase;letter-spacing:.05em;font-size:12px}.tv-banner>span{flex:1 1 220px}
 
-/* body: stage + side panel */
-.tv-body{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
-.tv-has-panel .tv-body{grid-template-columns:minmax(0,1fr) minmax(300px,380px)}
-.tv-stage{background:radial-gradient(circle at 50% 0,var(--tv-soft),var(--tv-card) 70%);border-radius:22px;box-shadow:var(--shadow);padding:18px 14px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;overflow-x:auto;min-height:420px}
+/* body: the stage never changes size when the sim card opens, because the card is a fixed overlay */
+.tv-body{display:block}
+.tv-stage{background:radial-gradient(circle at 50% 0,var(--tv-soft),var(--tv-card) 70%);border-radius:22px;box-shadow:var(--shadow);padding:18px 0 24px;overflow-x:auto;min-height:420px}
+.tv-canvas{position:relative;width:max-content;min-width:100%}
+.tv-wires{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
+.tv-wires .tv-parents-wire,.tv-wires .tv-pets-wire{stroke:var(--tv-line)}
+.tv-wires .tv-halo{stroke:var(--tv-halo);stroke-width:8;fill:none;stroke-linecap:butt;opacity:.9}
+.tv-tree{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 28px}
 .tv-row-label{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:900;margin-top:6px}
 .tv-zone{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
 
@@ -75,40 +79,68 @@ html[data-theme=dark] .tv-crumb{color:#8cc4f5}html[data-theme=dark] .tv-crumb.cu
 .tv-pic.mini{width:40px;height:40px;font-size:15px}.tv-pic.xxl{width:88px;height:88px;font-size:30px;box-shadow:0 3px 8px rgba(23,50,77,.25)}
 .tv-tag{font-size:11.5px;color:var(--muted);font-weight:900}
 .tv-pwrap{display:flex;flex-direction:column;align-items:center}
+.tv-node{position:relative;display:inline-flex;--s:76px}
+.tv-node.s-sm{--s:52px}.tv-node.s-md{--s:72px}.tv-node.s-xl{--s:124px}
+
+/* icons that explain themselves: status badges, marks, tooltip */
+.tv-marks{position:absolute;top:-2px;left:calc(50% + var(--s) / 2 - 8px);display:flex;flex-direction:column;gap:2px;z-index:2}
+.tv-mark{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;line-height:1;background:var(--surface);box-shadow:0 1px 4px rgba(23,50,77,.35),inset 0 0 0 1.5px var(--hair);padding:0;cursor:help}
+.tv-tip:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.tv-tooltip{position:fixed;z-index:60;left:0;top:0;max-width:240px;padding:6px 11px;border-radius:10px;background:var(--ink);color:var(--surface);font-size:13px;font-weight:800;line-height:1.25;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}
+.tv-tooltip.on{opacity:1;transform:none}
+.tv-tooltip::after{content:'';position:absolute;left:var(--ax,50%);bottom:-5px;width:10px;height:10px;margin-left:-5px;background:var(--ink);transform:rotate(45deg);border-radius:2px}
+.tv-tooltip.below::after{bottom:auto;top:-5px}
+.tv-tooltip[hidden]{display:none}
 
 /* focus + partners */
-.tv-core{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;margin:4px 0}
+.tv-core{display:flex;align-items:center;justify-content:center;margin:34px 0 4px;position:relative}
+.tv-core.tv-sym{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-self:stretch}
+.tv-core.tv-sym>.tv-focus{grid-column:2}.tv-core.tv-sym>.tv-partners{grid-column:3}.tv-core.tv-sym>.tv-pets{grid-column:1}
 .tv-focus{display:flex;justify-content:center}
-.tv-partners{flex-direction:column;flex-wrap:nowrap;gap:10px;align-items:stretch;justify-content:center;position:relative;padding-left:22px;margin-left:6px}
-.tv-partners:has(.tv-partner)::before{content:'';position:absolute;left:0;top:30px;bottom:30px;width:3px;border-radius:2px;background:var(--hair)}
-.tv-partner::after{content:'';position:absolute;left:-22px;top:50%;width:22px;height:3px;margin-top:-1px;background:var(--uc)}
-.tv-partner{display:flex;align-items:center;gap:6px;position:relative;padding:4px 8px 4px 10px;border-left:4px solid var(--uc);border-radius:16px;background:color-mix(in srgb,var(--uc) 8%,transparent)}
-.tv-partner .tv-sim{width:auto;flex:none}.tv-partner .tv-tag{display:none}
-.tv-status{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--tv-card);box-shadow:0 1px 5px rgba(23,50,77,.25);font-size:19px;flex:none;cursor:help;font-weight:900;color:var(--muted)}
-.tv-status.light{opacity:.55;filter:saturate(.6)}
-.tv-partner>.tv-btn{margin-left:4px}
+.tv-parents{gap:12px 44px;position:relative}
+.tv-partners{flex-direction:column;flex-wrap:nowrap;gap:12px;align-items:stretch;justify-content:center;position:relative;justify-self:start;margin-left:calc(100px + 22px * (var(--nr,1) - 1))}
+.tv-partner{display:flex;align-items:center;gap:6px;position:relative;padding:4px 10px 4px 6px;border:2px solid color-mix(in srgb,var(--uc) 55%,transparent);border-radius:18px;background:color-mix(in srgb,var(--uc) 7%,var(--surface))}
+.tv-partner .tv-node,.tv-partner .tv-sim{width:auto;flex:none}.tv-partner .tv-tag{display:none}
+.tv-partner>.tv-btn{margin-left:2px}
+.tv-status{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--surface);border:2px solid var(--tv-line);box-shadow:0 1px 5px rgba(23,50,77,.25);font-size:16px;line-height:1;flex:none;cursor:help;font-weight:900;color:var(--muted);padding:0}
+.tv-partner>.tv-status,.tv-parents>.tv-status{position:absolute;left:0;top:0;z-index:2;visibility:hidden}
+.tv-status.on-line{visibility:visible}
+.tv-partner>.tv-status{border-color:var(--uc)}
+.tv-status.light{opacity:.85}
 
-/* children by unit */
-.tv-kids{display:flex;flex-wrap:wrap;gap:22px 18px;justify-content:center;align-items:flex-start;margin-top:10px;position:relative}
-.tv-unit{position:relative;border-top:4px solid var(--uc);border-radius:16px 16px 0 0;padding:14px 8px 4px;min-width:90px;background:linear-gradient(180deg,color-mix(in srgb,var(--uc) 10%,transparent),transparent 60%)}
-.tv-unit::before{content:'';position:absolute;left:50%;top:-22px;width:4px;height:18px;margin-left:-2px;background:var(--uc);border-radius:2px}
-.tv-unit-label{position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:11.5px;font-weight:900;background:var(--uc);color:#fff;padding:1px 9px;border-radius:999px;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}
-.tv-unit-kids{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
-.tv-pets{margin-top:2px;padding:4px 10px;border-radius:16px;background:var(--tv-soft)}
+/* children by unit: the lines are the structure, the label is a small pill sitting on the bar */
+.tv-kids{display:flex;flex-wrap:wrap;gap:46px 44px;justify-content:center;align-items:flex-start;margin-top:calc(30px + 9px * var(--nu,1));position:relative;max-width:100%}
+.tv-unit{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:90px}
+.tv-unit-label{height:22px;display:inline-flex;align-items:center;font-size:11.5px;font-weight:900;background:var(--surface);color:var(--uc);box-shadow:inset 0 0 0 1.5px var(--uc);padding:0 10px;border-radius:999px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1}
+.tv-unit-kids{display:flex;gap:34px 4px;justify-content:center;flex-wrap:wrap;max-width:calc(5 * 112px)}
+.tv-pets{position:relative;justify-self:end;margin-right:64px;max-width:280px;padding:14px 12px 6px;border-radius:16px;border:2px dotted var(--tv-line);background:transparent}
+.tv-pets-tag{position:absolute;top:-9px;left:12px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:900;background:var(--surface);padding:0 8px;border-radius:999px}
 .tv-nokids{text-align:center}
 .tv-ghost{border:2px dotted var(--tv-edit);color:var(--tv-edit);border-radius:16px;min-height:44px;padding:8px 14px;font-weight:900;font-size:13.5px;background:transparent}
 .tv-ghost:hover{background:color-mix(in srgb,var(--tv-edit) 10%,transparent)}
-.tv-unit.new{border-top-style:dotted;border-top-color:var(--tv-edit);--uc:var(--tv-edit);min-width:0;background:none}.tv-unit.new::before{display:none}
+.tv-unit.new{--uc:var(--tv-edit);min-width:0}
 
 /* edit mode: dotted outlines only here */
 .tv-editing .tv-stage{outline:3px dashed color-mix(in srgb,var(--tv-edit) 55%,transparent);outline-offset:-6px}
 .tv-editing .tv-sim{outline:2px dotted var(--tv-edit);outline-offset:1px}
-.tv-editing .tv-unit{outline:2px dotted color-mix(in srgb,var(--tv-edit) 70%,transparent);outline-offset:2px}
+.tv-editing .tv-unit:not(.new){outline:2px dotted color-mix(in srgb,var(--tv-edit) 70%,transparent);outline-offset:6px;border-radius:14px}
 .tv-editing .tv-partner{outline:2px dotted color-mix(in srgb,var(--tv-edit) 70%,transparent);outline-offset:2px}
 .tv-busy{cursor:progress}.tv-busy .tv-stage,.tv-busy .tv-panel{opacity:.7;pointer-events:none}
 
-/* side panel */
-.tv-panel{background:var(--tv-card);border-radius:22px;box-shadow:var(--shadow);padding:12px 16px 20px;position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;overscroll-behavior:contain}
+/* sim card: an overlay sheet (fixed; transform and opacity only) so nothing in the tree moves when it opens */
+.tv-backdrop{position:fixed;inset:0;z-index:25;background:rgba(15,44,74,.34);opacity:0;pointer-events:none;transition:opacity 380ms cubic-bezier(.32,.72,0,1)}
+.tv-backdrop[hidden]{display:none}
+.tv-backdrop.is-open{opacity:1;pointer-events:auto}
+html[data-theme=dark] .tv-backdrop{background:rgba(0,0,0,.5)}
+.tv-panel{position:fixed;z-index:26;top:12px;right:12px;bottom:12px;width:min(400px,calc(100vw - 24px));background:var(--tv-card);border-radius:24px;box-shadow:0 24px 60px rgba(15,44,74,.38),0 0 0 1px var(--hair);display:flex;flex-direction:column;overflow:hidden;transform:translate3d(calc(100% + 24px),0,0);transition:transform 380ms cubic-bezier(.32,.72,0,1);will-change:transform}
+.tv-panel[hidden]{display:none}
+.tv-panel.is-open{transform:translate3d(0,0,0)}
+.tv-panel-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px 16px 22px;position:relative}
+.tv-panel-ghost{position:absolute;left:0;right:0;top:var(--grab-h,0px);bottom:0;flex:none;pointer-events:none;animation:tvOut 240ms ease both;z-index:2;background:var(--tv-card)}
+.tv-fadein{animation:tvIn 260ms ease both}
+@keyframes tvIn{from{opacity:0}to{opacity:1}}
+@keyframes tvOut{from{opacity:1}to{opacity:0}}
+.tv-grab{display:none}
 .tv-panel-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .tv-card-head{display:flex;gap:14px;align-items:center}.tv-card-title h2{font-size:22px;line-height:1.15;overflow-wrap:anywhere}
 .tv-life{color:var(--muted);font-size:13px;font-weight:800}
@@ -117,7 +149,7 @@ html[data-theme=dark] .tv-crumb{color:#8cc4f5}html[data-theme=dark] .tv-crumb.cu
 .tv-sec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}.tv-sec h3{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .tv-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
 .tv-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tv-row>.tv-rowbtn{flex:1 1 160px;width:auto}
-.tv-row .tv-status{width:26px;height:26px;font-size:15px;box-shadow:none;background:none}
+.tv-row .tv-status{width:26px;height:26px;font-size:15px;box-shadow:none;background:none;border:0}
 .tv-empty{color:var(--muted);font-size:13.5px;padding:2px 0}
 .tv-info{margin:0;display:flex;flex-direction:column;gap:6px}.tv-info-row{display:grid;grid-template-columns:110px 1fr;gap:8px;font-size:14px}
 .tv-info dt{color:var(--muted);font-weight:900}.tv-info dd{margin:0;overflow-wrap:anywhere}
@@ -142,23 +174,33 @@ html[data-theme=dark] .tv-crumb{color:#8cc4f5}html[data-theme=dark] .tv-crumb.cu
 @media(min-width:701px){.tv-snack{bottom:90px}}
 
 /* floating bubble */
-.tv-bubble{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:25;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;text-decoration:none;color:#fff;background:linear-gradient(160deg,var(--green1),var(--green2));box-shadow:0 6px 18px rgba(23,50,77,.35),inset 0 -3px 0 rgba(0,0,0,.18);font-size:28px;line-height:1;transition:transform .15s}
+.tv-bubble{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:24;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;text-decoration:none;color:#fff;background:linear-gradient(160deg,var(--green1),var(--green2));box-shadow:0 6px 18px rgba(23,50,77,.35),inset 0 -3px 0 rgba(0,0,0,.18);font-size:28px;line-height:1;transition:transform .15s}
 .tv-bubble:hover{transform:scale(1.06)}
 .tv-bubble-tx{position:absolute;right:64px;top:50%;transform:translateY(-50%);background:var(--ink);color:var(--surface);font-size:13px;font-weight:900;padding:5px 11px;border-radius:999px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s}
 .tv-bubble:hover .tv-bubble-tx,.tv-bubble:focus-visible .tv-bubble-tx{opacity:1}
 @media(max-width:700px){.tv-bubble{bottom:calc(76px + env(safe-area-inset-bottom,0px));width:52px;height:52px;font-size:26px}}
 html[data-theme=dark] .tv-bubble{box-shadow:0 6px 18px rgba(0,0,0,.6),inset 0 -3px 0 rgba(0,0,0,.25)}
 
-/* phones: the sim card is a full-screen sheet */
-@media(max-width:820px){.tv-has-panel .tv-body{grid-template-columns:minmax(0,1fr)}}
+/* phones: the sim card is a bottom sheet with a grab handle; partners stack under the focus sim */
 @media(max-width:700px){
-  .tv-panel{position:fixed;inset:0;z-index:26;border-radius:0;max-height:none;top:0;padding:max(12px,env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px));box-shadow:none}
-  .tv-stage{padding:14px 6px 20px;min-height:360px}
-  .tv-sim.s-xl{--s:104px;width:170px}
+  .tv-panel{top:auto;left:0;right:0;bottom:0;width:auto;height:min(88vh,88dvh);border-radius:24px 24px 0 0;transform:translate3d(0,100%,0);--grab-h:22px}
+  .tv-panel.is-open{transform:translate3d(0,0,0)}
+  .tv-grab{display:block;flex:none;width:42px;height:5px;border-radius:3px;background:var(--hair);margin:9px auto 8px}
+  .tv-panel-body{padding:4px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+  .tv-stage{padding:14px 0 20px;min-height:360px}
+  .tv-tree{padding:0 10px 0 calc(30px + 10px * var(--nu,1))}
+  .tv-sim.s-xl{--s:104px;width:170px}.tv-node.s-xl{--s:104px}
   .tv-two{grid-template-columns:1fr}
   .tv-info-row{grid-template-columns:96px 1fr}
-  .tv-kids{gap:26px 10px}
+  .tv-core{display:flex;flex-direction:column;align-items:center;margin:24px 0 4px}
+  .tv-core>.tv-focus{order:1}.tv-core>.tv-partners{order:2}.tv-core>.tv-pets{order:3;align-self:flex-start;margin:26px 0 0 24px;max-width:calc(100vw - 60px)}
+  .tv-partners{align-self:flex-start;margin:44px 0 0 60px}
+  .tv-partner{flex-direction:column;padding:6px 8px;gap:2px}
+  .tv-sim{width:calc(var(--s) + 20px)}.tv-sim.s-xl{width:170px}
+  .tv-kids{flex-direction:column;align-items:flex-start;gap:46px 0;margin-top:34px;max-width:none;width:100%}
+  .tv-unit{align-items:flex-start}
+  .tv-unit-label{align-self:flex-start;margin-left:24px}
+  .tv-unit-kids{max-width:none;gap:34px 0;justify-content:flex-start}
 }
-html.tv-panel-open{}
 @media(max-width:700px){html.tv-panel-open body{overflow:hidden}}
-@media(prefers-reduced-motion:reduce){.tv *,.tv-bubble,.tv-bubble *{transition:none!important;animation:none!important}.tv-sim:hover,.tv-bubble:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){.tv *,.tv-bubble,.tv-bubble *,.tv-panel,.tv-backdrop,.tv-tooltip{transition:none!important;animation:none!important}.tv-sim:hover,.tv-bubble:hover{transform:none}.tv-panel-ghost{display:none}}
