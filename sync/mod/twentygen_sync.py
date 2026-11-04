@@ -200,7 +200,104 @@ def _death_cause(si):
     return n if isinstance(n, str) and n.upper() != "NONE" else ""
 
 
-def _sim(si, in_household, full):
+REL_MAX = 30          # relationships kept per sim
+REL_SCAN_MAX = 150    # relationship targets looked at per sim (bounds the cost)
+_REL_ORDER = ["married", "engaged", "dating", "widowed", "divorced", "ex"]
+
+
+def _rel_status(bit_name):
+    """Romantic status for one relationship bit tuning name, or None."""
+    n = (bit_name or "").lower().replace(" ", "").replace("_", "")
+    if not n:
+        return None
+    if "romantic-married" in n or ("married" in n and "unmarried" not in n):
+        return "married"
+    if "engaged" in n:
+        return "engaged"
+    if any(t in n for t in ("significantother", "boyfriendgirlfriend", "promised", "steady")):
+        return "dating"
+    if "widow" in n:
+        return "widowed"
+    if "divorced" in n:
+        return "divorced"
+    if "brokenup" in n or "romantic-exes" in n:
+        return "ex"
+    if n.startswith("romantic-") and n[len("romantic-"):] in ("ex", "exes"):
+        return "ex"
+    return None
+
+
+def _best_status(bits):
+    found = set()
+    for b in bits:
+        st = _rel_status(_name(b))
+        if st:
+            found.add(st)
+    for st in _REL_ORDER:
+        if st in found:
+            return st
+    return None
+
+
+def _rel_pairs(si):
+    """[(otherId, bits)] using the sim's relationship tracker, else the relationship service."""
+    sid = _safe(lambda: si.sim_id, None)
+    tr = _safe(lambda: si.relationship_tracker, None)
+    if tr is not None and hasattr(tr, "target_sim_gen") and hasattr(tr, "get_all_bits"):
+        out = []
+        for i, tid in enumerate(tr.target_sim_gen()):
+            if i >= REL_SCAN_MAX:
+                break
+            out.append((tid, _safe(lambda: list(tr.get_all_bits(tid)), [])))
+        return out
+    import services
+    rs = services.relationship_service()
+    if rs is None or sid is None:
+        return []
+    if hasattr(rs, "target_sim_gen"):
+        targets = rs.target_sim_gen(sid)
+    else:
+        targets = [getattr(x, "sim_id", x) for x in rs.get_target_sim_infos(sid)]
+    out = []
+    for i, tid in enumerate(targets):
+        if i >= REL_SCAN_MAX:
+            break
+        out.append((tid, _safe(lambda: list(rs.get_all_bits(sid, tid)), [])))
+    return out
+
+
+def _rels(si):
+    """Romantic relationships: [{"id": otherSimId, "st": status}] (empty when none or unreadable)."""
+    try:
+        res = []
+        me = _safe(lambda: int(si.sim_id), None)
+        for tid, bits in _rel_pairs(si):
+            tid_s = str(_safe(lambda: int(tid), tid))
+            if me is not None and tid_s == str(me):
+                continue
+            st = _best_status(bits)
+            if st:
+                res.append({"id": tid_s, "st": st})
+                if len(res) >= REL_MAX:
+                    break
+        return res
+    except Exception:
+        return []
+
+
+def _is_adopted(si):
+    if any("adopted" in t.lower() for t in _traits(si)):
+        return True
+    g = _safe(lambda: si.genealogy, None)
+    if g is not None:
+        for attr in ("is_adopted", "adopted"):
+            v = _safe(lambda: getattr(g, attr), None)
+            if v is True:
+                return True
+    return False
+
+
+def _sim(si, in_household, full, with_rels=False):
     parents, children, spouse = _family_ids(si)
     d = {
         "id": str(_safe(lambda: si.sim_id, "")),
@@ -223,6 +320,12 @@ def _sim(si, in_household, full):
         d["skills"] = _skills(si)
         d["careers"] = _careers(si)
         d["asp"] = _aspiration(si)
+    if full or with_rels:
+        r = _rels(si)
+        if r:
+            d["rels"] = r
+    if _safe(lambda: _is_adopted(si), False):
+        d["adopted"] = True
     return d
 
 # ---------------------------------------------------------------- snapshot
@@ -270,11 +373,12 @@ def build_snapshot():
             rsi = _safe(lambda: mgr.get(int(rid)), None)
             if rsi is None:
                 continue
-            sims[rid] = _sim(rsi, False, False)
+            sims[rid] = _sim(rsi, False, False, with_rels=(depth == 0))
             queue.append((rid, depth + 1))
     return {
         "v": VERSION,
         "modVersion": VERSION,
+        "relsVersion": 1,
         "at": int(time.time()),
         "household": {
             "id": str(_safe(lambda: hh.id, "")),
