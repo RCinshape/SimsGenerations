@@ -57,7 +57,7 @@ html[data-theme=dark] .tv-crumb{color:#8cc4f5}html[data-theme=dark] .tv-crumb.cu
 .tv-stage{background:radial-gradient(circle at 50% 0,var(--tv-soft),var(--tv-card) 70%);border-radius:22px;box-shadow:var(--shadow);padding:18px 0 24px;overflow-x:auto;min-height:420px}
 .tv-canvas{position:relative;width:max-content;min-width:100%}
 .tv-wires{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
-.tv-wires .tv-parents-wire,.tv-wires .tv-pets-wire{stroke:var(--tv-line)}
+.tv-wires .tv-parents-wire,.tv-wires .tv-pets-wire,.tv-wires .tv-bus-wire{stroke:var(--tv-line)}
 .tv-wires .tv-halo{stroke:var(--tv-halo);stroke-width:8;fill:none;stroke-linecap:butt;opacity:.9}
 .tv-tree{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 28px}
 .tv-row-label{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:900;margin-top:6px}
@@ -93,15 +93,17 @@ html[data-theme=dark] .tv-crumb{color:#8cc4f5}html[data-theme=dark] .tv-crumb.cu
 .tv-tooltip[hidden]{display:none}
 
 /* focus + partners */
-.tv-core{display:flex;align-items:center;justify-content:center;margin:34px 0 4px;position:relative}
-.tv-core.tv-sym{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-self:stretch}
-.tv-core.tv-sym>.tv-focus{grid-column:2}.tv-core.tv-sym>.tv-partners{grid-column:3}.tv-core.tv-sym>.tv-pets{grid-column:1}
+.tv-core{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;align-self:stretch;margin:34px 0 4px;position:relative}
+.tv-core>.tv-focus{grid-column:2}.tv-core>.tv-pets{grid-column:1;grid-row:1}
+
 .tv-focus{display:flex;justify-content:center}
 .tv-parents{gap:12px 44px;position:relative}
-.tv-partners{flex-direction:column;flex-wrap:nowrap;gap:12px;align-items:stretch;justify-content:center;position:relative;justify-self:start;margin-left:calc(100px + 22px * (var(--nr,1) - 1))}
-.tv-partner{display:flex;align-items:center;gap:6px;position:relative;padding:4px 10px 4px 6px;border:2px solid color-mix(in srgb,var(--uc) 55%,transparent);border-radius:18px;background:color-mix(in srgb,var(--uc) 7%,var(--surface))}
-.tv-partner .tv-node,.tv-partner .tv-sim{width:auto;flex:none}.tv-partner .tv-tag{display:none}
-.tv-partner>.tv-btn{margin-left:2px}
+
+.tv-partner{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;padding:8px 14px 10px;border:2px solid color-mix(in srgb,var(--uc) 55%,transparent);border-radius:18px;background:color-mix(in srgb,var(--uc) 7%,var(--surface));min-width:150px}
+.tv-partner.tv-ph{min-height:64px;justify-content:center;border-style:dashed;border-color:var(--tv-line);background:transparent;color:var(--muted);font-size:13px;font-weight:800;text-align:center}
+.tv-partner.tv-nolink{border-color:var(--tv-line);background:var(--surface)}
+.tv-partner .tv-node,.tv-partner .tv-sim{flex:none}.tv-partner .tv-tag{display:none}.tv-partner.tv-nolink .tv-tag{display:block}
+.tv-partner>.tv-btn{margin-top:2px}
 .tv-status{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--surface);border:2px solid var(--tv-line);box-shadow:0 1px 5px rgba(23,50,77,.25);font-size:16px;line-height:1;flex:none;cursor:help;font-weight:900;color:var(--muted);padding:0}
 .tv-partner>.tv-status,.tv-parents>.tv-status{position:absolute;left:0;top:0;z-index:2;visibility:hidden}
 .tv-status.on-line{visibility:visible}
@@ -109,22 +111,25 @@ html[data-theme=dark] .tv-crumb{color:#8cc4f5}html[data-theme=dark] .tv-crumb.cu
 .tv-status.light{opacity:.85}
 
 /* children by unit: the lines are the structure, the label is a small pill sitting on the bar */
-.tv-kids{display:flex;flex-wrap:wrap;gap:46px 44px;justify-content:center;align-items:flex-start;margin-top:calc(30px + 9px * var(--nu,1));position:relative;max-width:100%}
-.tv-unit{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:90px}
+.tv-kids{display:flex;flex-wrap:nowrap;gap:0 40px;justify-content:center;align-items:flex-start;margin-top:78px;position:relative}
+.tv-col{display:flex;flex-direction:column;align-items:center;min-width:0}
+.tv-col.new{gap:16px}
+.tv-unit{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:34px}
 .tv-unit-label{height:22px;display:inline-flex;align-items:center;font-size:11.5px;font-weight:900;background:var(--surface);color:var(--uc);box-shadow:inset 0 0 0 1.5px var(--uc);padding:0 10px;border-radius:999px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;position:relative;z-index:1}
-.tv-unit-kids{display:flex;gap:34px 4px;justify-content:center;flex-wrap:wrap;max-width:calc(5 * 112px)}
-.tv-pets{position:relative;justify-self:end;margin-right:64px;max-width:280px;padding:14px 12px 6px;border-radius:16px;border:2px dotted var(--tv-line);background:transparent}
+.tv-unit-kids{display:flex;gap:34px 18px;justify-content:center;flex-wrap:nowrap}
+.tv-unit-kids.wrap2{flex-wrap:wrap;max-width:calc(2 * 106px + 18px)}
+.tv-pets{position:relative;justify-self:end;margin-right:44px;max-width:280px;padding:14px 12px 6px;border-radius:16px;border:2px dotted var(--tv-line);background:transparent}
 .tv-pets-tag{position:absolute;top:-9px;left:12px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:900;background:var(--surface);padding:0 8px;border-radius:999px}
 .tv-nokids{text-align:center}
 .tv-ghost{border:2px dotted var(--tv-edit);color:var(--tv-edit);border-radius:16px;min-height:44px;padding:8px 14px;font-weight:900;font-size:13.5px;background:transparent}
 .tv-ghost:hover{background:color-mix(in srgb,var(--tv-edit) 10%,transparent)}
-.tv-unit.new{--uc:var(--tv-edit);min-width:0}
+.tv-unit.new{--uc:var(--tv-edit);margin-top:0}
 
 /* edit mode: dotted outlines only here */
 .tv-editing .tv-stage{outline:3px dashed color-mix(in srgb,var(--tv-edit) 55%,transparent);outline-offset:-6px}
 .tv-editing .tv-sim{outline:2px dotted var(--tv-edit);outline-offset:1px}
 .tv-editing .tv-unit:not(.new){outline:2px dotted color-mix(in srgb,var(--tv-edit) 70%,transparent);outline-offset:6px;border-radius:14px}
-.tv-editing .tv-partner{outline:2px dotted color-mix(in srgb,var(--tv-edit) 70%,transparent);outline-offset:2px}
+.tv-editing .tv-partner:not(.tv-ph){outline:2px dotted color-mix(in srgb,var(--tv-edit) 70%,transparent);outline-offset:2px}
 .tv-busy{cursor:progress}.tv-busy .tv-stage,.tv-busy .tv-panel{opacity:.7;pointer-events:none}
 
 /* sim card: an overlay sheet (fixed; transform and opacity only) so nothing in the tree moves when it opens */
@@ -188,19 +193,21 @@ html[data-theme=dark] .tv-bubble{box-shadow:0 6px 18px rgba(0,0,0,.6),inset 0 -3
   .tv-grab{display:block;flex:none;width:42px;height:5px;border-radius:3px;background:var(--hair);margin:9px auto 8px}
   .tv-panel-body{padding:4px 16px calc(24px + env(safe-area-inset-bottom,0px))}
   .tv-stage{padding:14px 0 20px;min-height:360px}
-  .tv-tree{padding:0 10px 0 calc(30px + 10px * var(--nu,1))}
+  .tv-tree{padding:0 10px}
   .tv-sim.s-xl{--s:104px;width:170px}.tv-node.s-xl{--s:104px}
   .tv-two{grid-template-columns:1fr}
   .tv-info-row{grid-template-columns:96px 1fr}
-  .tv-core{display:flex;flex-direction:column;align-items:center;margin:24px 0 4px}
-  .tv-core>.tv-focus{order:1}.tv-core>.tv-partners{order:2}.tv-core>.tv-pets{order:3;align-self:flex-start;margin:26px 0 0 24px;max-width:calc(100vw - 60px)}
-  .tv-partners{align-self:flex-start;margin:44px 0 0 60px}
-  .tv-partner{flex-direction:column;padding:6px 8px;gap:2px}
+  .tv-core{margin:24px 0 4px}
+  .tv-pets{margin-right:8px;max-width:104px;padding:14px 4px 4px;gap:0}
+
+
+  .tv-partner{min-width:0;padding:6px 14px 8px}
   .tv-sim{width:calc(var(--s) + 20px)}.tv-sim.s-xl{width:170px}
-  .tv-kids{flex-direction:column;align-items:flex-start;gap:46px 0;margin-top:34px;max-width:none;width:100%}
-  .tv-unit{align-items:flex-start}
-  .tv-unit-label{align-self:flex-start;margin-left:24px}
-  .tv-unit-kids{max-width:none;gap:34px 0;justify-content:flex-start}
+  .tv-kids{flex-direction:column;align-items:center;gap:0;margin-top:0}
+  .tv-col{margin-top:46px}
+  .tv-unit{margin-top:30px}
+
+  .tv-unit-kids{gap:34px 10px}.tv-unit-kids.wrap2{max-width:calc(2 * 92px + 10px)}
 }
 @media(max-width:700px){html.tv-panel-open body{overflow:hidden}}
 @media(prefers-reduced-motion:reduce){.tv *,.tv-bubble,.tv-bubble *,.tv-panel,.tv-backdrop,.tv-tooltip{transition:none!important;animation:none!important}.tv-sim:hover,.tv-bubble:hover{transform:none}.tv-panel-ghost{display:none}}

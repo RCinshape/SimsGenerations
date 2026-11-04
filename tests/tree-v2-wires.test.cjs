@@ -100,6 +100,23 @@ test('the sim card is an overlay sheet; Escape closes it and focus returns to th
   assert.equal(sheet.hidden, true);
 });
 
+test('classic top-down layout: a bus under the focus, one column per couple, ordered married first; unknown parent gets a placeholder column', async t => {
+  const w = await load(t), d = w.document;
+  const cols = [...d.querySelectorAll('.tv-kids > .tv-col[data-col]')];
+  assert.deepEqual(cols.map(c => c.dataset.col), ['2004', '2003', '2002'], 'married, then co-parent, then ex');
+  for (const c of cols) { assert.ok(c.querySelector(':scope > .tv-partner .tv-status')); assert.ok(c.querySelector(':scope > .tv-unit .tv-sim'), 'children sit in the partner\'s column'); }
+  assert.ok(d.querySelector('g.tv-bus-wire path'));
+  // a child whose other parent is unknown gets its own column headed by a placeholder
+  w.__srv.tree.sims.m9 = { id: 'm9', first: 'Solo', last: '', gender: '', age: 'CHILD', kind: 'person', species: '', life: 'alive', cause: '', occults: [], traits: [], asp: '', inHousehold: false, src: 'game', edited: [], gameValues: {} };
+  w.__srv.tree.parents.push({ id: 'p:2001:m9', child: 'm9', parent: '2001', type: 'birth', src: 'game' });
+  w.eval("showFamilyPage('qa-alpha')");
+  await until(() => d.querySelector('.tv-col.tv-hangcol'), 'placeholder column');
+  const hang = d.querySelector('.tv-col.tv-hangcol');
+  assert.match(hang.querySelector('.tv-ph').textContent, /Other parent unknown/);
+  assert.equal(hang.querySelector('.tv-unit .tv-nm').textContent, 'Solo');
+  assert.equal(d.querySelector('.tv-kids').lastElementChild, hang);
+});
+
 test('css: the sheet is fixed, transform-animated with the spring curve, and honours reduced motion', () => {
   const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'tree.css'), 'utf8');
   assert.match(css, /\.tv-panel\{position:fixed;[^}]*transition:transform 380ms cubic-bezier\(\.32,\.72,0,1\)/);
@@ -136,9 +153,23 @@ test('opening the sheet does not change the stage box (real browser)', { skip: !
     await page.waitForTimeout(600);
     assert.deepEqual(await box(), before, 'stage box after close ' + vp.width);
     assert.equal(await page.evaluate(() => document.querySelector('.tv-panel').hidden), true);
-    // no wire path runs through a node box
-    const wires = await page.evaluate(() => document.querySelectorAll('.tv-wires path.tv-wire').length);
-    assert.ok(wires > 5);
+    // no two wires cross or run on top of each other (segments of straight paths; touching ends are joins)
+    const segs = await page.evaluate(() => [...document.querySelectorAll('.tv-wires path.tv-wire')].filter(p => !p.closest('.tv-parents-wire')).map((p, i) => {
+      const n = (p.getAttribute('d').match(/-?\d+(\.\d+)?/g) || []).map(Number), out = [];
+      for (let k = 0; k + 3 < n.length; k += 2) out.push([n[k], n[k + 1], n[k + 2], n[k + 3], i]);
+      return out;
+    }).flat());
+    assert.ok(segs.length > 8);
+    const eps = 0.6, cross = (a, b) => {
+      const horiz = s => Math.abs(s[1] - s[3]) < eps, vert = s => Math.abs(s[0] - s[2]) < eps;
+      if (horiz(a) && horiz(b)) return Math.abs(a[1] - b[1]) < eps && Math.min(Math.max(a[0], a[2]), Math.max(b[0], b[2])) - Math.max(Math.min(a[0], a[2]), Math.min(b[0], b[2])) > 1;
+      if (vert(a) && vert(b)) return Math.abs(a[0] - b[0]) < eps && Math.min(Math.max(a[1], a[3]), Math.max(b[1], b[3])) - Math.max(Math.min(a[1], a[3]), Math.min(b[1], b[3])) > 1;
+      const [h, v] = horiz(a) ? [a, b] : [b, a];
+      if (!horiz(h) || !vert(v)) return false;
+      const inside = (x, lo, hi) => x > Math.min(lo, hi) + 1.5 && x < Math.max(lo, hi) - 1.5;
+      return inside(v[0], h[0], h[2]) && inside(h[1], v[1], v[3]);
+    };
+    for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) if (segs[i][4] !== segs[j][4]) assert.ok(!cross(segs[i], segs[j]), 'wires touch badly: ' + JSON.stringify([segs[i], segs[j]]));
     await ctx.close();
   }
 });

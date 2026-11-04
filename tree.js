@@ -360,7 +360,7 @@ function paintStage(st){
   /* one canvas: the wires (svg) sit behind the nodes (.tv-tree) */
   const cv=h('div',{class:'tv-canvas'}),svg=document.createElementNS(NS,'svg');
   svg.setAttribute('class','tv-wires');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');
-  const tree=h('div',{class:'tv-tree',style:`--nu:${units.length};--np:${partners.length};--nr:${Math.max(1,Math.ceil(partners.length/2))}`});
+  const tree=h('div',{class:'tv-tree'});
   cv.append(svg,tree);stage.append(cv);st.ui.canvas=cv;st.ui.wires=svg;
   /* parents */
   const prow=h('div',{class:'tv-parents tv-zone','aria-label':'Parents'});
@@ -372,41 +372,47 @@ function paintStage(st){
   }
   if(st.edit)prow.append(ghostBtn('＋ Parent','Add a parent',()=>openPicker(st,'parent',f)));
   if(prow.children.length)tree.append(h('div',{class:'tv-row-label tv-sr',text:'Parents'}),prow);
-  /* focus + partners */
+  /* focus, with pets beside it on a dotted line of their own */
   const core=h('div',{class:'tv-core'});
+  if(pets.length||st.edit){
+    const row=h('div',{class:'tv-pets tv-zone','aria-label':'Pets'},h('span',{class:'tv-pets-tag',text:'Pets'}),...pets.map(p=>bubble(st,p,'sm')));
+    if(st.edit)row.append(ghostBtn('＋ Pet','Add a pet',()=>openPicker(st,'pet',f)));
+    core.append(row);
+  }
   core.append(h('div',{class:'tv-focus'},bubble(st,f,'xl',{cls:'focus'})));
-  const col=h('div',{class:'tv-partners tv-zone','aria-label':'Partners'});
-  partners.forEach(p=>{
-    const c=colors.get(p.id),m=STATUS[p.link.status]||STATUS.unknown;
+  tree.append(core);
+  /* one column per couple: partner on top, that couple's children right below */
+  const rank=s=>({married:0,engaged:0,dating:0,coparent:1,unknown:1,ex:1,divorced:1,widowed:2})[s];
+  const ordered=partners.map((p,i)=>({p,i})).sort((a,b)=>((rank(a.p.link.status)??1)-(rank(b.p.link.status)??1))||a.i-b.i).map(x=>x.p);
+  const byPartner=new Map(),extra=[];
+  units.forEach(u=>{const o=u.others[0];if(o&&ordered.some(p=>p.id===o)&&!byPartner.has(o))byPartner.set(o,u);else extra.push(u);});
+  extra.sort((a,b)=>(a.others.length?0:1)-(b.others.length?0:1));
+  const typeOf=k=>{const l=(ix.kids.get(f)||[]).find(x=>x.child===k);return l?l.type:'';};
+  const unitEl=(u,c)=>{
+    const lab=u.others.length?'with '+u.others.map(x=>ix.hidden.has(x)?'a hidden sim':nameOf(ix.sims[x])).join(' and '):'on their own',short=u.others.length?'with '+u.others.map(x=>ix.hidden.has(x)?'a hidden sim':(ix.sims[x].first||nameOf(ix.sims[x]))).join(' & '):'on their own';
+    return h('div',{class:'tv-unit','data-unit':u.key,'data-with':u.others.join(','),role:'group','aria-label':`Children ${lab}`,style:`--uc:${c}`},
+      h('span',{class:'tv-unit-label',text:short,title:lab}),h('div',{class:'tv-unit-kids'+(u.children.length>3?' wrap2':'')},...u.children.map(k=>bubble(st,k,'md',{ptype:typeOf(k)}))));
+  };
+  const cols=h('div',{class:'tv-kids tv-cols','aria-label':'Partners and children'});
+  ordered.forEach(p=>{
+    const c=colors.get(p.id),m=STATUS[p.link.status]||STATUS.unknown,u=byPartner.get(p.id);
     const box=h('div',{class:'tv-partner','data-partner':p.id,'data-status':p.link.status,style:`--uc:${c}`},bubble(st,p.id,'md',{color:c,aria:m.label}),
       h('span',{class:'tv-tag',text:m.label}),statusSym(p.link.status));
     if(st.edit)box.append(h('button',{class:'tv-btn small',type:'button','aria-label':'Remove the link with '+nameOf(ix.sims[p.id]),onclick:()=>removeLink(st,'partner',p.link)},'Unlink'));
     else box.append(h('button',{class:'tv-btn small subtree',type:'button','data-subtree':p.id,'aria-label':'Open subtree of '+nameOf(ix.sims[p.id]),onclick:()=>refocus(st,p.id)},'Open subtree'));
-    col.append(box);
+    cols.append(h('div',{class:'tv-col','data-col':p.id},box,u?unitEl(u,c):null));
   });
-  if(st.edit)col.append(ghostBtn('＋ Partner','Add a partner',()=>openPicker(st,'partner',f)));
-  /* pets sit beside the focus sim, on a dotted line of their own */
-  if(pets.length||st.edit){
-    const row=h('div',{class:'tv-pets tv-zone','aria-label':'Pets'},h('span',{class:'tv-pets-tag',text:'Pets'}),...pets.map(p=>bubble(st,p,'sm')));
-    if(st.edit)row.append(ghostBtn('＋ Pet','Add a pet',()=>openPicker(st,'pet',f)));
-    core.prepend(row);
+  extra.forEach(u=>{
+    const o=u.others[0],known=o&&ix.sims[o]&&!ix.hidden.has(o),c=o?colors.get(o)||SOLO_COLOR:SOLO_COLOR;
+    const head=known?h('div',{class:'tv-partner tv-nolink',style:`--uc:${c}`},bubble(st,o,'md',{color:c}),h('span',{class:'tv-tag',text:'Not linked as a partner'}))
+      :h('div',{class:'tv-partner tv-ph'},h('span',{class:'tv-ph-t',text:o?'Hidden sim':'Other parent unknown'}));
+    cols.append(h('div',{class:'tv-col tv-hangcol','data-col':'hang:'+u.key},head,unitEl(u,c)));
+  });
+  if(st.edit){
+    cols.append(h('div',{class:'tv-col new'},ghostBtn('＋ Partner','Add a partner',()=>openPicker(st,'partner',f)),h('div',{class:'tv-unit new'},ghostBtn('＋ Child','Add a child',()=>openPicker(st,'child',f)))));
   }
-  core.append(col);tree.append(core);
-  /* children by unit: no boxes, the wires are the structure */
-  const kids=h('div',{class:'tv-kids','aria-label':'Children'});
-  units.sort((a,b)=>{const ia=a.others.length?[...colors.keys()].indexOf(a.others[0]):99,ib=b.others.length?[...colors.keys()].indexOf(b.others[0]):99;return ia-ib;});
-  const partnerIds=new Set(partners.map(p=>p.id));
-  units.forEach(u=>{
-    const o=u.others[0],c=o?colors.get(o):SOLO_COLOR;
-    const lab=u.others.length?'with '+u.others.map(x=>ix.hidden.has(x)?'a hidden sim':nameOf(ix.sims[x])).join(' and '):'on their own',short=u.others.length?'with '+u.others.map(x=>ix.hidden.has(x)?'a hidden sim':(ix.sims[x].first||nameOf(ix.sims[x]))).join(' & '):'on their own';
-    const typeOf=k=>{const l=(ix.kids.get(f)||[]).find(x=>x.child===k);return l?l.type:'';};
-    const unit=h('div',{class:'tv-unit','data-unit':u.key,'data-with':u.others.join(','),'data-src':o&&partnerIds.has(o)?o:'focus',role:'group','aria-label':`Children ${lab}`,style:`--uc:${c}`},
-      h('span',{class:'tv-unit-label',text:short,title:lab}),h('div',{class:'tv-unit-kids'},...u.children.map(k=>bubble(st,k,'md',{ptype:typeOf(k)}))));
-    kids.append(unit);
-  });
-  if(st.edit)kids.append(h('div',{class:'tv-unit new'},ghostBtn('＋ Child','Add a child',()=>openPicker(st,'child',f))));
-  if(units.length||st.edit)tree.append(h('div',{class:'tv-row-label tv-sr',text:'Children'}),kids);
-  else tree.append(h('p',{class:'tv-note tv-nokids',text:'No children recorded for '+nameOf(ix.sims[f])+'.'}));
+  if(cols.children.length)tree.append(h('div',{class:'tv-row-label tv-sr',text:'Partners and children'}),cols);
+  else tree.append(h('p',{class:'tv-note tv-nokids',text:'No partners or children recorded for '+nameOf(ix.sims[f])+'.'}));
   /* wires: draw now, and again whenever the layout can change */
   drawWires(st);scheduleWires(st);
   if(window.ResizeObserver){st.ro=new ResizeObserver(()=>scheduleWires(st));st.ro.observe(cv);st.ro.observe(stage);}
@@ -433,23 +439,10 @@ function scheduleWires(st){
   const raf=window.requestAnimationFrame?window.requestAnimationFrame.bind(window):f=>setTimeout(f,16);
   st.wireRaf=raf(()=>{st.wireRaf=0;if(alive(st))drawWires(st);});
 }
-/* Prefer a symmetric core (focus sim exactly in the middle). If that does not fit the stage, keep the focus beside its
-   partners and shift the parent and children rows so they still sit right over the focus sim. */
-function fitCore(st,narrow){
-  const cv=st.ui.canvas,stage=st.ui.stage,core=cv.querySelector('.tv-core'),rows=[...cv.querySelectorAll('.tv-parents,.tv-kids')];
-  if(!core)return;
-  rows.forEach(r=>{r.style.marginRight='';});core.classList.remove('tv-sym');
-  if(narrow)return;
-  core.classList.add('tv-sym');
-  if(cv.scrollWidth<=stage.clientWidth+1)return;
-  core.classList.remove('tv-sym');
-  const fpic=cv.querySelector('.tv-focus .tv-pic');if(!fpic)return;
-  const c=cv.getBoundingClientRect(),f=fpic.getBoundingClientRect(),shift=Math.round(((c.left+c.width/2)-(f.left+f.width/2))*2);
-  if(shift>0)rows.forEach(r=>{r.style.marginRight=shift+'px';});
-}
+/* Layout rules: parents -> focus; focus -> a horizontal bus; one column per couple hangs from the bus (partner on top, its
+   children right below). Every line is a short straight piece between two neighbours, so nothing crosses or overlaps. */
 function drawWires(st){
   const cv=st.ui.canvas,svg=st.ui.wires;if(!cv||!svg||!cv.isConnected)return;
-  fitCore(st,isNarrow());
   const cr=cv.getBoundingClientRect(),narrow=isNarrow();
   const R=el=>{const r=el.getBoundingClientRect();return {l:r.left-cr.left,r:r.right-cr.left,t:r.top-cr.top,b:r.bottom-cr.top,cx:(r.left+r.right)/2-cr.left,cy:(r.top+r.bottom)/2-cr.top,w:r.width,h:r.height};};
   const Q=(root,sel)=>[...root.querySelectorAll(sel)];
@@ -459,9 +452,7 @@ function drawWires(st){
   const fp=R(focusSim.querySelector('.tv-pic')),fb=R(focusSim).b;
   const group=(cls,attrs)=>{const g=sv('g',Object.assign({class:cls,fill:'none','stroke-linecap':'round','stroke-linejoin':'round'},attrs));svg.append(g);return g;};
   const line=(g,pts,o={})=>{
-    const d=roundedPath(pts,o.r);
-    if(o.halo)g.append(sv('path',{class:'tv-halo',d}));
-    const p=sv('path',{class:'tv-wire '+(o.cls||''),d,'stroke-width':o.w||3.5});
+    const p=sv('path',{class:'tv-wire '+(o.cls||''),d:roundedPath(pts,o.r==null?0:o.r),'stroke-width':o.w||3});
     if(o.dash)p.setAttribute('stroke-dasharray',o.dash);
     if(o.kind)p.setAttribute('data-style',o.kind);
     if(o.op!=null)p.setAttribute('stroke-opacity',o.op);
@@ -479,103 +470,64 @@ function drawWires(st){
     const ym=Math.max(maxB+8,(maxB+fp.t)/2);let S;
     if(pws.length===2){
       const y=(pics[0].cy+pics[1].cy)/2,mx=(pics[0].r+pics[1].l)/2,status=prow.dataset.couple;
-      if(status)statusLine(g,[[pics[0].r+1,y],[pics[1].l-1,y]],status);else line(g,[[pics[0].r+1,y],[pics[1].l-1,y]],{cls:'tv-link is-solid',kind:'solid',w:3});
+      if(status)statusLine(g,[[pics[0].r+1,y],[pics[1].l-1,y]],status);else line(g,[[pics[0].r+1,y],[pics[1].l-1,y]],{cls:'tv-link is-solid',kind:'solid'});
       place(prow.querySelector('.tv-status'),prow,mx,y);S=[mx,y];
     }else if(pws.length===1){S=[pics[0].cx,bots[0]+2];}
     else{
-      const y=maxB+10;pws.forEach(w=>{const q=R(w),pc=R(w.querySelector('.tv-pic'));line(g,[[pc.cx,q.b+2],[pc.cx,y]],{w:3});});
-      line(g,[[pics[0].cx,y],[pics[pics.length-1].cx,y]],{w:3});S=[(pics[0].cx+pics[pics.length-1].cx)/2,y];
+      const y=maxB+10;pws.forEach(w=>{const q=R(w),pc=R(w.querySelector('.tv-pic'));line(g,[[pc.cx,q.b+2],[pc.cx,y]]);});
+      line(g,[[pics[0].cx,y],[pics[pics.length-1].cx,y]]);S=[(pics[0].cx+pics[pics.length-1].cx)/2,y];
     }
-    line(g,[S,[S[0],ym],[fp.cx,ym],[fp.cx,fp.t-3]],{w:3});
+    line(g,[S,[S[0],ym],[fp.cx,ym],[fp.cx,fp.t-3]],{r:10});
   }
-  /* focus <-> partners */
-  const cards=Q(cv,'.tv-partner[data-partner]'),groups=new Map(),src=new Map();
-  const couples=cards.map(card=>{const pic=R(card.querySelector('.tv-pic'));return {id:card.dataset.partner,card,r:R(card),py:pic.cy,color:(card.style.getPropertyValue('--uc')||'').trim()||SOLO_COLOR,status:card.dataset.status||'unknown'};});
-  couples.forEach(c=>{c.g=group('tv-couple',{'data-with':c.id,'data-status':c.status,stroke:c.color});groups.set(c.id,c.g);});
-  if(couples.length){
-    if(!narrow){
-      const rad=fp.w/2,xmin=Math.min(...couples.map(c=>c.r.l)),lo=fp.r+16,hi=xmin-70;
-      const up=couples.filter(c=>c.py<fp.cy-3).sort((a,b)=>b.py-a.py),down=couples.filter(c=>c.py>fp.cy+3).sort((a,b)=>a.py-b.py),mid=couples.filter(c=>Math.abs(c.py-fp.cy)<=3);
-      const n=Math.max(up.length,down.length),step=n>1?Math.max(0,Math.min(22,(hi-lo)/(n-1))):0;
-      const lay=(list,sign)=>list.forEach((c,i)=>{
-        const d=sign*Math.min(rad*.75,11+i*11),s=[fp.cx+Math.sqrt(Math.max(0,rad*rad-d*d))-1,fp.cy+d],ex=Math.min(Math.max(lo,hi-i*step),c.r.l-46);
-        c.pts=[s,[ex,s[1]],[ex,c.py],[c.r.l,c.py]];
-      });
-      lay(up,-1);lay(down,1);mid.forEach(c=>{c.pts=[[fp.r-1,fp.cy],[c.r.l,c.py]];});
-      couples.forEach(c=>{const k=c.pts.length;c.bx=(c.pts[k-2][0]+c.pts[k-1][0])/2;c.by=c.py;});
-    }else{
-      const xS=Math.min(...couples.map(c=>c.r.l))-54;let prev=null;
-      couples.sort((a,b)=>a.py-b.py).forEach(c=>{
-        const spine=prev?[[xS,prev],[xS,c.py]]:[[fp.cx,fb+2],[fp.cx,fb+14],[xS,fb+14],[xS,c.py]];
-        line(c.g,spine,{cls:'tv-spine',w:3});prev=c.py;
-        c.pts=[[xS,c.py],[c.r.l,c.py]];c.bx=(xS+c.r.l)/2;c.by=c.py;c.xS=xS;
-      });
-    }
-    couples.forEach(c=>{statusLine(c.g,c.pts,c.status);place(c.card.querySelector('.tv-status'),c.card,c.bx,c.by);src.set(c.id,{x:c.bx,y:c.by+15,xS:c.xS,y0:c.by});});
-  }
-  /* couples -> children */
-  const kidsEl=cv.querySelector('.tv-kids'),us=Q(cv,'.tv-unit[data-with]');
-  if(kidsEl&&us.length){
-    const kr=R(kidsEl),coreB=Math.max(R(cv.querySelector('.tv-core')).b,...cards.map(c=>R(c).b));
-    const info=us.map((u,idx)=>{
-      const ur=R(u),lr=R(u.querySelector('.tv-unit-label')),pics=Q(u,'.tv-unit-kids .tv-pic').map(R).sort((a,b)=>a.t-b.t||a.cx-b.cx),rows=[];
+  /* columns */
+  const cols=Q(cv,'.tv-kids > .tv-col[data-col]');
+  if(cols.length){
+    const info=cols.map(col=>{
+      const head=col.querySelector('.tv-partner'),hr=R(head),u=col.querySelector('.tv-unit[data-with]'),pid=head.dataset.partner||'';
+      const c=(head.style.getPropertyValue('--uc')||'').trim()||SOLO_COLOR;
+      return {col,head,hr,u,pid,c,status:head.dataset.status||'',cx:hr.cx};
+    });
+    const colTop=Math.min(...info.map(i=>i.hr.t));
+    const busY=Math.max(fb+16,colTop-54);
+    info.forEach((i,k)=>{
+      const g=group('tv-couple'+(i.pid?'':' tv-hang'),{'data-with':i.pid||(i.u?i.u.dataset.with:''),'data-status':i.status,stroke:i.pid?i.c:i.c});
+      i.g=g;
+      /* the drop from the bus (desktop) or a short stub (phone) into the partner, with the status on it */
+      let from;
+      if(!narrow)from=[i.cx,busY];
+      else if(k===0)from=[fp.cx,fb+2];
+      else from=[i.cx,i.hr.t-40];
+      const to=[i.cx,i.hr.t-1],mid=[(from[0]+to[0])/2,(from[1]+to[1])/2];
+      if(i.pid)statusLine(g,[from,to],i.status);
+      else line(g,[from,to],{cls:'tv-link is-solid',kind:'solid',w:2.5,op:.6});
+      if(narrow&&k>0)g.append(sv('circle',{cx:r1(from[0]),cy:r1(from[1]),r:4.5,fill:i.c,stroke:'none'}));
+      if(i.pid)place(i.head.querySelector('.tv-status'),i.head,mid[0],mid[1]);
+      /* partner -> this couple's children */
+      if(!i.u)return;
+      const lr=R(i.u.querySelector('.tv-unit-label')),pics=Q(i.u,'.tv-unit-kids .tv-pic').map(R).sort((a,b)=>a.t-b.t||a.cx-b.cx),rows=[];
       pics.forEach(p=>{const last=rows[rows.length-1];if(last&&Math.abs(last.top-p.t)<10)last.p.push(p);else rows.push({top:p.t,p:[p]});});
-      rows.forEach(r=>{r.p.sort((a,b)=>a.cx-b.cx);r.cxs=r.p.map(p=>p.cx);r.minL=Math.min(...r.p.map(p=>p.l));r.last=r.cxs[r.cxs.length-1];});
-      return {u,idx,ur,lr,rows,key:u.dataset.src,col:(u.style.getPropertyValue('--uc')||'').trim()||SOLO_COLOR,w:u.dataset.with};
-    }).filter(i=>i.rows.length);
-    const lines=[];
-    info.slice().sort((a,b)=>a.ur.t-b.ur.t).forEach(i=>{const l=lines[lines.length-1];if(l&&Math.abs(l.t-i.ur.t)<12)l.u.push(i);else lines.push({t:i.ur.t,u:[i]});});
-    lines.forEach((l,li)=>{l.u.sort((a,b)=>a.lr.cx-b.lr.cx);l.u.forEach((i,k)=>{i.li=li;i.lk=k;});});
-    /* sources */
-    const hang=info.filter(i=>i.key==='focus');
-    info.forEach(i=>{
-      i.g=groups.get(i.key);
-      if(!i.g)i.g=group('tv-couple tv-hang',{'data-with':i.w,stroke:i.col});
-      if(i.key==='focus'){const k=hang.indexOf(i);i.S=narrow?[fp.l-1,fp.cy]:[fp.cx+(k-(hang.length-1)/2)*10,fb+2];}
-      else{const s=src.get(i.key);i.S=narrow?[s.xS,s.y0]:[s.x,s.y];}
+      if(!rows.length)return;
+      line(g,[[i.cx,i.hr.b+1],[i.cx,lr.t-1]],{cls:'tv-descent'});
+      const bars=rows.map((r,ri)=>ri?r.top-18:lr.cy);
+      rows.forEach((r,ri)=>{
+        const xs=r.p.map(p=>p.cx).sort((a,b)=>a-b),y=bars[ri];
+        if(xs[xs.length-1]-xs[0]>1)line(g,[[xs[0],y],[xs[xs.length-1],y]]);
+        xs.forEach(x=>line(g,[[x,y],[x,r.top-3]]));
+      });
+      /* two per row: one short trunk between the pair joins the rows */
+      if(rows.length>1)line(g,[[i.cx,lr.cy],[i.cx,bars[bars.length-1]]]);
     });
-    /* unit-internal bars and rails */
-    const railBase=16;
-    info.forEach(i=>{
-      const multi=i.rows.length>1;
-      i.rail=narrow?railBase+10*i.idx:(multi?Math.max(railBase,Math.min(...i.rows.map(r=>r.minL))-14):null);
-      i.bars=i.rows.map((r,ri)=>ri?r.top-18:i.lr.cy);
-      i.rows.forEach((r,ri)=>{
-        const y=i.bars[ri],x0=i.rail!=null?i.rail:Math.min(r.cxs[0],ri?r.cxs[0]:i.lr.cx),x1=Math.max(r.last,ri?r.last:i.lr.cx);
-        if(x1>x0)line(i.g,[[x0,y],[x1,y]],{w:3,r:0});
-        r.cxs.forEach(cx=>line(i.g,[[cx,y],[cx,r.top-3]],{w:3,r:0}));
-      });
-      if(i.rail!=null&&i.rows.length>1)line(i.g,[[i.rail,i.bars[0]],[i.rail,i.bars[i.bars.length-1]]],{w:3,r:0});
-    });
-    /* descents from each couple (or the focus) to its children */
-    if(narrow){
-      info.forEach(i=>{line(i.g,[i.S,[i.rail,i.S[1]],[i.rail,i.bars[i.bars.length-1]]],{halo:true,w:3,cls:'tv-descent'});});
-    }else{
-      const chB=Math.min(...info.filter(i=>i.li===0).map(i=>i.ur.t))-8,chT=coreB+6,used=info.filter(j=>j.li>0);
-      info.forEach(i=>{
-        i.tx=i.lr.cx;
-        if(i.li>0)i.ru=Math.max(railBase,kr.l-14-8*used.indexOf(i));
-        i.goLeft=(i.li>0?i.ru:i.tx)<i.S[0];
-      });
-      const gl=info.filter(i=>i.goLeft).sort((a,b)=>a.S[0]-b.S[0]),gr=info.filter(i=>!i.goLeft).sort((a,b)=>b.S[0]-a.S[0]),order=[...gl,...gr];
-      order.forEach((i,k)=>{i.L=chT+(k+1)*Math.max(4,chB-chT)/(order.length+1);});
-      info.forEach(i=>{
-        const T=[i.tx,i.ur.t-1];let pts;
-        if(i.li===0)pts=[i.S,[i.S[0],i.L],[i.tx,i.L],T];
-        else{
-          const step=Math.min(6,28/lines[i.li].u.length),yR=i.ur.t-10-step*i.lk;
-          pts=[i.S,[i.S[0],i.L],[i.ru,i.L],[i.ru,yR],[i.tx,yR],T];
-        }
-        line(i.g,pts,{halo:true,w:3,cls:'tv-descent'});
-      });
+    if(!narrow){
+      const g=group('tv-bus-wire',{'data-kind':'bus'}),xs=[fp.cx,...info.map(i=>i.cx)];
+      line(g,[[fp.cx,fb+2],[fp.cx,busY]]);
+      if(Math.max(...xs)-Math.min(...xs)>1)line(g,[[Math.min(...xs),busY],[Math.max(...xs),busY]]);
     }
   }
   /* pets hang on a dotted line of their own */
   const pr=cv.querySelector('.tv-pets');
   if(pr&&pr.querySelector('.tv-sim')){
-    const g=group('tv-pets-wire',{'data-kind':'pets'}),prr=R(pr);
-    const pts=narrow?[[fp.l-1,fp.cy],[5,fp.cy],[5,prr.cy],[prr.l-2,prr.cy]]:[[fp.l-1,fp.cy],[(fp.l+prr.r)/2,fp.cy],[(fp.l+prr.r)/2,prr.cy],[prr.r+2,prr.cy]];
-    line(g,pts,{w:3,dash:'1.5 7',kind:'dotted',cls:'tv-link is-dotted'});
+    const g=group('tv-pets-wire',{'data-kind':'pets'}),prr=R(pr),y=Math.max(fp.t+10,Math.min(fp.b-10,prr.cy));
+    line(g,[[fp.l-1,y],[prr.r+2,y]],{dash:'1.5 7',kind:'dotted',cls:'tv-link is-dotted'});
   }
 }
 
