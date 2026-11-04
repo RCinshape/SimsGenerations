@@ -878,6 +878,11 @@ function scheduleRecovery(delay){
     if(generation===sessionGeneration&&actor===ME) scheduleRecovery(typeof SETUP!=="undefined"&&SETUP?8000:(GAS?20000:15000));
   },wait);
 }
+/* Test profile: a yellow bar so the host never mistakes it for a real player. Nothing it does reaches the girls. */
+function testBar(){ let b=document.getElementById("testBar"); if(!LIVE.tester){ if(b) b.remove(); return; }
+  if(!b){ b=document.createElement("div"); b.id="testBar"; b.setAttribute("role","status");
+    b.style.cssText="position:sticky;top:0;z-index:40;background:#ffd84d;color:#3a2c00;font:800 14px/1.3 Nunito,system-ui,sans-serif;text-align:center;padding:7px 12px;box-shadow:0 2px 6px rgba(0,0,0,.2)";
+    b.textContent="🧪 TEST PROFILE · nothing you do here reaches the girls (Discord, their app or their games)"; document.body.prepend(b); } }
 function pull(){
   const generation=sessionGeneration, actor=ME;
   if(pullFlight&&pullFlight.generation===generation&&pullFlight.actor===actor) return pullFlight.promise;
@@ -903,7 +908,8 @@ async function pullData(generation,actor,initialLive){
   const fam={};
   if(Array.isArray(d.famKeys)){ const keep=new Set(d.famKeys.map(String)); Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ if(keep.has("fam|"+k)) fam[k]=f; }); }
   (d.fams||[]).forEach(f=>{ if(f&&f.name) fam[key(f.name)]={at:f.at||0,sims:f.sims||{}}; });
-  LIVE={roster:d.roster||[],progress:prog,feed:d.feed||[],reactions:d.reactions||[],sync,fam,syncOn:!!d.syncOn,mine:d.mine||null,votes:d.votes||[],chaos:d.chaos||null};
+  LIVE={roster:d.roster||[],progress:prog,feed:d.feed||[],reactions:d.reactions||[],sync,fam,syncOn:!!d.syncOn,mine:d.mine||null,votes:d.votes||[],chaos:d.chaos||null,tester:!!d.tester};
+  try{ testBar(); }catch(e){}
   if(ME && !MINE){ MINE=prog[key(ME)]||null; }
   // keep my local copy if it's newer
   if(ME && MINE){ const srv=prog[key(ME)]; if(!dirty && srv && (srv._revision?Number(srv._revision)>Number(MINE._revision||0):(srv.updatedAt||0)>(MINE.updatedAt||0))) MINE=srv; LIVE.progress[key(ME)]=MINE; }
