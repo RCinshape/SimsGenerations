@@ -282,6 +282,9 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 @media (min-width:701px){.toast{bottom:24px}}
 .toast .ic{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(180deg,var(--green1),var(--green2));flex:none}
 .toast.bad .ic{background:var(--red)}
+.upd{position:fixed;top:8px;right:10px;z-index:60;background:var(--card,#fff);color:var(--muted,#667);border:1px solid var(--line,#d6dde6);border-radius:999px;padding:3px 10px;font:800 12px/1.4 Nunito,system-ui,sans-serif;opacity:.92;pointer-events:none}
+.upd::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:50%;border:2px solid #cfe6f8;border-top-color:#3f9b1f;vertical-align:-1px;animation:tgspin .8s linear infinite}
+#v-hood.preview .nopreview{display:none}
 .net{background:#fde5e0;color:var(--red);border:2px solid var(--red);border-radius:14px;padding:8px 12px;font-weight:800;font-size:14px}
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
 .confetti i{position:absolute;top:-20px;width:10px;height:14px;border-radius:3px;animation:fall 2.4s ease-in forwards}
@@ -403,11 +406,11 @@ html[data-theme=dark] a{color:#8cc4f5}
     <div><h1 class="h1">The Neighborhood</h1><p class="sub" id="hoodSub"></p></div>
     <div class="panel"><div class="ph"><h2>Who's where</h2><span>Generation 1 → 20</span></div><div class="pb"><div class="track"><div class="rail" id="rail"></div></div></div></div>
     <div class="players" id="players"></div>
-    <div class="panel"><div class="ph"><h2>🗳️ Votes</h2><span>Decide each other's fate</span></div><div id="votes"></div></div>
-    <div class="panel"><div class="ph"><h2>🎲 Chaos button</h2><span>Send a surprise into another girl's game</span></div><div id="chaos"></div></div>
+    <div class="panel nopreview"><div class="ph"><h2>🗳️ Votes</h2><span>Decide each other's fate</span></div><div id="votes"></div></div>
+    <div class="panel nopreview"><div class="ph"><h2>🎲 Chaos button</h2><span>Send a surprise into another girl's game</span></div><div id="chaos"></div></div>
     <div class="panel">
       <div class="ph"><h2>What's happening</h2><span id="feedCount"></span></div>
-      <div class="pb"><div class="compose"><textarea id="post" maxlength="400" placeholder="Share a moment…"></textarea><button class="btn go" id="postBtn" type="button">Share</button></div></div>
+      <div class="pb nopreview"><div class="compose"><textarea id="post" maxlength="400" placeholder="Share a moment…"></textarea><button class="btn go" id="postBtn" type="button">Share</button></div></div>
       <div class="feed" id="feed"></div>
     </div>
   </section>
@@ -813,7 +816,55 @@ async function api(path,body){
   if(!r.ok){ const err=new Error(String(r.status)); err.code=data&&data.error; err.data=data; if(r.status===401&&ME&&path!=="login"){ loggedOut(); } throw err; }
   return data;
 }
-function loggedOut(message){ if(typeof dismissLinkedTree==="function")dismissLinkedTree(); if(typeof dismissFamilyExplorer==="function")dismissFamilyExplorer(); persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan","family"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
+function loggedOut(message){ clearStartupCache(ME); endStartupPreview(); if(typeof dismissLinkedTree==="function")dismissLinkedTree(); if(typeof dismissFamilyExplorer==="function")dismissFamilyExplorer(); persistTabRecovery(ME); sessionGeneration++; resetRecovery(); SESSION_TOKEN=""; ME=""; MINE=null; outbox=[]; dirty=false; progressConflict=null; const warning=$("#recoveryWarning"); if(warning) warning.hidden=true; $("#conflictNotice")?.remove(); clearTimeout(saveTimer); $("#tabs").hidden=true; $("#meBtn").hidden=true; ["hood","me","plan","family"].forEach(v=>$("#v-"+v).hidden=true); closeSheet(); authScreen("login",message||"You were logged out. Log in again."); }
+/* ---------- instant start: the last good shared answer, painted read-only while the first request runs ----------
+   Only what the Neighborhood screen already shows (roster, everyone's progress as the server sent it, feed, reactions, game-file times).
+   It is never MINE, never the outbox, never a save: pullData/enter still decide everything from the fresh answer. */
+const STARTUP_MAX_AGE=7*864e5, STARTUP_MAX_CHARS=1500000;
+const startupKey=name=>"tg-startup-live:"+key(name);
+function tokenTag(t){ let x=2166136261; const s=String(t||""); for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619)>>>0; } return x.toString(16); }
+let startupSavedAt=0;
+function clearStartupCache(name){ try{ [name,ls.get("tg-last")].forEach(n=>{ if(n) ls.del(startupKey(n)); }); }catch(e){} startupSavedAt=0; }
+function saveStartupCache(name,part){
+  if(!GAS||!SESSION_TOKEN||!name||Date.now()-startupSavedAt<30000) return;     // at most every 30 s; the first answer always saves
+  try{
+    const text=JSON.stringify(Object.assign({v:1,name,tag:tokenTag(SESSION_TOKEN),at:Date.now()},part));
+    if(text.length>STARTUP_MAX_CHARS){ ls.del(startupKey(name)); return; }
+    if(ls.set(startupKey(name),text)) startupSavedAt=Date.now();
+  }catch(e){}
+}
+function readStartupCache(){
+  try{
+    const name=ls.get("tg-last"); if(!name||!SESSION_TOKEN) return null;
+    const c=JSON.parse(ls.get(startupKey(name))||"null");
+    if(!c||c.v!==1||key(c.name)!==key(name)||c.tag!==tokenTag(SESSION_TOKEN)||!(Date.now()-c.at<STARTUP_MAX_AGE)||!Array.isArray(c.roster)||!Array.isArray(c.progress)) return null;
+    return c;
+  }catch(e){ return null; }
+}
+let startupPreview=null;
+function startupPreviewOn(){
+  if(!GAS||!SESSION_TOKEN||NEXT==="questions"||familyRoute()||GO||ME) return;
+  const c=readStartupCache(); if(!c) return;
+  const realLive=LIVE, realMe=ME;
+  try{
+    const prog={}; c.progress.forEach(w=>{ if(w&&w.name&&w.data) prog[key(w.name)]=Object.assign({},w.data,{name:w.name}); });
+    LIVE={roster:c.roster,progress:prog,feed:Array.isArray(c.feed)?c.feed:[],reactions:Array.isArray(c.reactions)?c.reactions:[],sync:c.sync||{},fam:{},syncOn:!!c.syncOn,mine:null,votes:[],chaos:null,tester:false};
+    ME=c.name;                                   // only for the "(you)" label while drawing; put back right below
+    renderHood();
+  }catch(e){ LIVE=realLive; ME=realMe; return; }
+  LIVE=realLive; ME=realMe;
+  const v=$("#v-hood"); v.classList.add("preview"); v.setAttribute("inert",""); v.hidden=false;
+  const u=h("div",{class:"upd",id:"updating",role:"status","aria-live":"polite",text:"Updating…"}); document.body.append(u);
+  startupPreview={};
+}
+function endStartupPreview(){
+  try{
+    const u=document.getElementById("updating"); if(u) u.remove();
+    if(!startupPreview) return; startupPreview=null;
+    const v=document.getElementById("v-hood"); v.classList.remove("preview"); v.removeAttribute("inert"); v.hidden=true;
+    ["feed","players","rail"].forEach(id=>{ document.getElementById(id).innerHTML=""; });
+  }catch(e){}
+}
 let LIVE={roster:[],progress:{},feed:[],reactions:[],sync:{},fam:{},mine:null};
 let MINE=null;            // my progress (source of truth on this device)
 let outbox=[];            // events waiting to send
@@ -909,6 +960,8 @@ async function pullData(generation,actor,initialLive){
   if(Array.isArray(d.famKeys)){ const keep=new Set(d.famKeys.map(String)); Object.entries(LIVE.fam||{}).forEach(([k,f])=>{ if(keep.has("fam|"+k)) fam[k]=f; }); }
   (d.fams||[]).forEach(f=>{ if(f&&f.name) fam[key(f.name)]={at:f.at||0,sims:f.sims||{}}; });
   LIVE={roster:d.roster||[],progress:prog,feed:d.feed||[],reactions:d.reactions||[],sync,fam,syncOn:!!d.syncOn,mine:d.mine||null,votes:d.votes||[],chaos:d.chaos||null,tester:!!d.tester};
+  if(ME&&d.me&&key(d.me)===key(ME)&&!startupPreview) saveStartupCache(ME,{roster:LIVE.roster,progress:(d.progress||[]).filter(w=>w&&w.name&&w.data),feed:LIVE.feed,reactions:LIVE.reactions,syncOn:LIVE.syncOn,
+    sync:Object.fromEntries(Object.entries(sync).map(([k,a])=>[k,a.map(r=>({at:r.at,hh:r.hh,m:{},data:{}}))]))});   // server copies only, taken before my local copy or unsent events are mixed in
   try{ testBar(); }catch(e){}
   if(ME && !MINE){ MINE=prog[key(ME)]||null; }
   // keep my local copy if it's newer
@@ -1728,12 +1781,14 @@ window.addEventListener("online",()=>scheduleRecovery(0));
   try{
     // The live response already authenticates the token and identifies its owner.
     // Reuse it rather than waiting for whoami and then fetching the same session again.
+    startupPreviewOn();
     const initialLive=GAS&&SESSION_TOKEN&&NEXT!=="questions"?await api("live",{have:{}}):null;
+    endStartupPreview();
     const d=initialLive?{name:initialLive.me}:await api("whoami");
     if(typeof d.name!=="string"||!d.name.trim())throw new Error("401");
     if(NEXT==="questions"){location.href="/questions";return;} goHome(); enter(d.name,false,false,initialLive); return;
   }
-  catch(e){ if(e.message==="nolink"){ authScreen("login",errText(e)); return; } if(INVITE&&e.message!=="offline"){ authScreen("invite"); return; } authScreen("login", e.message==="offline"?errText(e):""); }
+  catch(e){ endStartupPreview(); if(e.message==="401") clearStartupCache(""); if(e.message==="nolink"){ authScreen("login",errText(e)); return; } if(INVITE&&e.message!=="offline"){ authScreen("invite"); return; } authScreen("login", e.message==="offline"?errText(e):""); }
 })();
 </script>
 <div id="tgload" style="position:fixed;inset:0;display:grid;place-items:center;z-index:50;pointer-events:none"><div style="text-align:center;font:800 16px Nunito,system-ui,sans-serif;color:#1c64bf"><div style="width:44px;height:44px;margin:0 auto 10px;border:5px solid #cfe6f8;border-top-color:#3f9b1f;border-radius:50%;animation:tgspin .8s linear infinite"></div>Loading your legacy…</div></div><style>@keyframes tgspin{to{transform:rotate(360deg)}}</style>
