@@ -8,6 +8,27 @@ Discord notices follow [the release update standard](docs/discord-updates.md). A
 
 No additional production release is asserted here. Collect the next verified batch before preparing a notice.
 
+## 2026-11-04.1 — 4 November 2026
+
+### Added
+
+- More life news from the game, posted one by one as before: occult changes (vampire, werewolf, spellcaster, mermaid, fairy and others), completed aspirations, new pets and horses, Sims moving in or out, the family moving house, engagements, new couples, break-ups, best friends and sworn enemies, child and life milestones, twins and triplets, adoption, and the cause of a death with a widow or widower line. An heir who becomes a vampire, alien or plant Sim gets a rule-breaker note.
+- A Test profile for the host's own PC. Nothing it does reaches the girls' Discord, app or games; its news goes to the host's alert channel.
+
+### Fixed
+
+- Trait names in game snapshots were all reported as "TuningBlueprint".
+- Loading an older save no longer posts false news (for example "X is alive again"); the check uses game time.
+- Test-player isolation: reactions, votes and in-game messages no longer cross between the Test profile and the girls.
+
+### Rollout and scope
+
+Backend production version 24 (from version 23). App page: Test profile banner. Signed collector update v9 (game modules sync and life changed; net, log, partner, inbox and PC helper unchanged from v8) was published to the test channel and then to everyone; it arrives on a successful sync and starts at the next game restart. Installation on each PC is not asserted. New relationship and milestone detectors use game names that still need confirmation on a real game (probe mode, see `docs/life-events-v2-plan.md`); an unconfirmed name simply does not fire.
+
+Local checks: news 108, Test profile 67, security 87, social 35, collector 34 (Python 3.7), app 131. No real-game run yet.
+
+**Announcement status:** held. The current instruction is not to post.
+
 ## 2026-11-03.1 — 3 November 2026
 
 ### Changed
