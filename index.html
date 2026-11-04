@@ -375,6 +375,8 @@ html[data-theme=dark] a{color:#8cc4f5}
 .family-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.family-actions .btn{text-decoration:none}.family-status{font-size:13px;color:var(--muted)}
 .fx-page{position:relative;min-height:70vh;border:1px solid var(--hair);border-radius:18px;overflow:hidden;background:var(--surface);color:var(--ink);display:flex;flex-direction:column}.fx-page .fx-head,.fx-page .fx-access,.fx-page .fx-drawer{background:var(--surface);color:var(--ink)}.fx-page .fx-head{border-color:var(--hair)}.fx-page .fx-head select,.fx-page .fx-button{background:var(--surface);color:var(--ink);border-color:var(--hair)}.fx-page .fx-stage{min-height:480px;flex:1}.fx-page .fx-node b,.fx-page .fx-node small{background:var(--surface);color:var(--ink)}.fx-page .fx-list-item{background:var(--bg);color:var(--ink)}.fx-page .fx-note{color:var(--muted)}html[data-theme=dark] .fx-page .fx-stage{background:radial-gradient(circle at center,#254a60,#142d40)}.generation-history summary{cursor:pointer;font-weight:900;padding:16px}.generation-history .panel{margin:0}
 </style>
+<link rel="stylesheet" href="tree.css">
+<script defer src="tree.js"></script>
 </head>
 <body>
 
@@ -1463,7 +1465,7 @@ function showFamilyPage(owner){
   TAB='family';document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected','false'));['hood','me','plan','family'].forEach(v=>$('#v-'+v).hidden=v!=='family');
   const view=$('#v-family');dismissFamilyExplorer();view.textContent='';
   if(!found){view.append(h('h1',{class:'h1'},'Family tree'),h('p',{class:'muted'},'This player is not available. Check the link or return to the neighborhood.'),h('button',{class:'btn',type:'button',onclick:()=>show('hood')},'← Neighborhood'));return;}
-  view.append(h('div',{},h('h1',{class:'h1',text:found+"’s family tree"}),h('p',{class:'sub'},'Explore the family and its relationships.')));openFamilyExplorer(found,true);
+  view.append(h('div',{},h('h1',{class:'h1',text:found+"’s family tree"}),h('p',{class:'sub'},'Explore the family and its relationships.')));if(window.treeV2Open)treeV2Open(found,view);else openFamilyExplorer(found,true);
 }
 function familyPanel(name,title){
   const S=famOf(name);
