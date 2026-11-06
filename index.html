@@ -282,8 +282,26 @@ main .wrap{padding-block:20px 60px;display:flex;flex-direction:column;gap:18px}
 @media (min-width:701px){.toast{bottom:24px}}
 .toast .ic{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(180deg,var(--green1),var(--green2));flex:none}
 .toast.bad .ic{background:var(--red)}
-.upd{position:fixed;top:8px;right:10px;z-index:60;background:var(--card,#fff);color:var(--muted,#667);border:1px solid var(--line,#d6dde6);border-radius:999px;padding:3px 10px;font:800 12px/1.4 Nunito,system-ui,sans-serif;opacity:.92;pointer-events:none}
-.upd::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:50%;border:2px solid #cfe6f8;border-top-color:#3f9b1f;vertical-align:-1px;animation:tgspin .8s linear infinite}
+/* "Updating…": what you see is saved news from your last visit; the fresh data is on its way. Big, centred, impossible to miss. */
+.upd{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 76px);transform:translate(-50%,0);z-index:60;display:flex;align-items:center;gap:10px;
+  background:linear-gradient(180deg,#ffffff,#eef6ff);color:#1d3b5c;border:2px solid #9fd07f;border-radius:999px;padding:9px 18px 9px 12px;
+  font:900 15px/1.25 Nunito,system-ui,sans-serif;box-shadow:0 10px 28px rgba(18,52,90,.25),0 0 0 4px rgba(63,155,31,.12);pointer-events:none;
+  animation:updIn .35s cubic-bezier(.32,.72,0,1) both;max-width:calc(100vw - 32px)}
+.upd small{display:block;font:700 12px/1.25 Nunito,system-ui,sans-serif;color:#5b7088}
+.upd .updGem{flex:none;width:22px;height:30px;position:relative;animation:updBob 1.1s ease-in-out infinite}
+.upd .updGem::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,#a8f07a,#3f9b1f 55%,#2c7a12);clip-path:polygon(50% 0,100% 45%,50% 100%,0 45%);filter:drop-shadow(0 2px 3px rgba(44,122,18,.45))}
+.upd.done{border-color:#3f9b1f;animation:updOut .45s ease 1.1s forwards}
+.upd.done .updGem{animation:none}
+#updBar{position:fixed;left:0;right:0;top:0;height:4px;z-index:61;overflow:hidden;background:rgba(63,155,31,.15);pointer-events:none}
+#updBar::before{content:"";position:absolute;top:0;bottom:0;width:40%;left:-40%;background:linear-gradient(90deg,transparent,#3f9b1f,#7fd34f,transparent);animation:updSlide 1.2s ease-in-out infinite}
+#v-hood.preview{filter:saturate(.75);opacity:.8;transition:opacity .3s,filter .3s}
+@keyframes updIn{from{opacity:0;transform:translate(-50%,-10px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes updOut{to{opacity:0;transform:translate(-50%,-8px) scale(.97)}}
+@keyframes updBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(8deg)}}
+@keyframes updSlide{to{left:100%}}
+html[data-theme=dark] .upd{background:linear-gradient(180deg,#1f3a57,#172c42);color:#eaf4ff;border-color:#4f9e2c}
+html[data-theme=dark] .upd small{color:#a9bfd4}
+@media (prefers-reduced-motion:reduce){.upd,.upd.done,.upd .updGem,#updBar::before{animation:none}#updBar::before{left:0;width:100%;opacity:.6}.upd.done{opacity:0;transition:opacity .2s 1s}}
 #v-hood.preview .nopreview{display:none}
 .net{background:#fde5e0;color:var(--red);border:2px solid var(--red);border-radius:14px;padding:8px 12px;font-weight:800;font-size:14px}
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
@@ -856,12 +874,15 @@ function startupPreviewOn(){
   }catch(e){ LIVE=realLive; ME=realMe; return; }
   LIVE=realLive; ME=realMe;
   const v=$("#v-hood"); v.classList.add("preview"); v.setAttribute("inert",""); v.hidden=false;
-  const u=h("div",{class:"upd",id:"updating",role:"status","aria-live":"polite",text:"Updating…"}); document.body.append(u);
+  const u=h("div",{class:"upd",id:"updating",role:"status","aria-live":"polite"},h("span",{class:"updGem","aria-hidden":"true"}),h("span",{},h("b",{text:"Updating…"}),h("small",{text:"Getting the latest news…"})));
+  document.body.append(u,h("div",{id:"updBar","aria-hidden":"true"}));
   startupPreview={};
 }
-function endStartupPreview(){
+function endStartupPreview(fresh){
   try{
-    const u=document.getElementById("updating"); if(u) u.remove();
+    const u=document.getElementById("updating"), bar=document.getElementById("updBar"); if(bar) bar.remove();
+    if(u&&!fresh) u.remove();
+    else if(u){ u.id="updated"; u.classList.add("done"); u.replaceChildren(h("span",{class:"updGem","aria-hidden":"true"}),h("span",{},h("b",{text:"Up to date ✓"}))); setTimeout(()=>u.remove(),1700); }
     if(!startupPreview) return; startupPreview=null;
     const v=document.getElementById("v-hood"); v.classList.remove("preview"); v.removeAttribute("inert"); v.hidden=true;
     ["feed","players","rail"].forEach(id=>{ document.getElementById(id).innerHTML=""; });
@@ -1785,7 +1806,7 @@ window.addEventListener("online",()=>scheduleRecovery(0));
     // Reuse it rather than waiting for whoami and then fetching the same session again.
     startupPreviewOn();
     const initialLive=GAS&&SESSION_TOKEN&&NEXT!=="questions"?await api("live",{have:{}}):null;
-    endStartupPreview();
+    endStartupPreview(!!initialLive);
     const d=initialLive?{name:initialLive.me}:await api("whoami");
     if(typeof d.name!=="string"||!d.name.trim())throw new Error("401");
     if(NEXT==="questions"){location.href="/questions";return;} goHome(); enter(d.name,false,false,initialLive); return;
